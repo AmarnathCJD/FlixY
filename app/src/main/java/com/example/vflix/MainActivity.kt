@@ -20,7 +20,8 @@ var isChecked = false
 
 @Composable
 fun MyApp() {
-    LoginForm()
+    //LoginForm()
+    MyAppHome()
 }
 
 

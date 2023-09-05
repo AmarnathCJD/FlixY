@@ -1,6 +1,7 @@
 package com.example.vflix
 
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -14,6 +15,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.wrapContentSize
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -48,6 +50,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 
@@ -67,7 +70,6 @@ fun BelowLoginScreen() {
     }
 }
 
-
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun LoginForm() {
@@ -85,22 +87,29 @@ fun LoginForm() {
                 .padding(16.dp),
         ) {
 
-            Text(
-                text = ":)",
-                fontSize = 30.sp,
-                modifier = Modifier.padding(8.dp),
-                color = Color.Magenta,
-                fontFamily = FontFamily.Serif,
-                textAlign = TextAlign.Start
-            )
+
 
             Column(
                 modifier = Modifier
                     .fillMaxSize()
                     .padding(16.dp),
-                verticalArrangement = Arrangement.Center,
+                //verticalArrangement = Arrangement.Center,
                 horizontalAlignment = Alignment.CenterHorizontally
             ) {
+                Image(
+                    painter = painterResource(R.drawable.logo),
+                    contentDescription = null,
+                    modifier = Modifier
+                        .size(216.dp)
+                        .padding(1.dp)
+                        .height(200.dp),
+                    contentScale = ContentScale.Crop,
+                    colorFilter = androidx.compose.ui.graphics.ColorFilter.lighting(
+                        add = Color(0xFFAD2B02),
+                        multiply = Color.Red
+                    )
+                )
+
                 Text(
                     text = "Sign In",
                     fontSize = 30.sp,
@@ -258,6 +267,9 @@ fun LoginFooter() {
             fontSize = 12.sp,
             color = Color(0xFFFFA500),
             fontFamily = FontFamily.Serif,
+            modifier = Modifier.padding(
+                vertical = 6.dp
+            )
         )
 
         Spacer(modifier = Modifier.height(16.dp))
@@ -272,7 +284,7 @@ fun LoginFooter() {
 fun LanguageSelector() {
     var expanded by remember { mutableStateOf(false) }
     var selectedLanguage by remember { mutableStateOf("English") }
-    val languages = listOf("English", "Spanish", "French", "German")
+    val languages = listOf("English", "Malayalam", "Hindi")
 
     Box(modifier =  Modifier
         .wrapContentSize()
