@@ -116,7 +116,7 @@ fun LoginForm() {
                     onValueChange = { email = it },
                     modifier = Modifier.padding(8.dp),
                     colors = TextFieldDefaults.textFieldColors(
-                        //containerColor = MaterialTheme.colorScheme.surface,
+                        containerColor = MaterialTheme.colorScheme.surface,
                     ),
                     shape = MaterialTheme.shapes.small,
                     label = { Text("Email") },
@@ -178,8 +178,6 @@ fun LoginForm() {
                         color = Color.White)
                 }
 
-                // remember me and forgot password
-
                 BelowLoginScreen()
                 NewToVFX()
                 LoginFooter()
@@ -190,22 +188,28 @@ fun LoginForm() {
 
 @Composable
 fun NewToVFX() {
-    Column  {
+    Column {
+        Row {
             Text(
-                text = "New to VFX ?",
+                text = "New to VFlix? ",
                 fontSize = 12.sp,
                 color = Color.Gray,
                 fontFamily = FontFamily.Serif,
-                modifier = Modifier.fillMaxWidth()
             )
 
             Text(
                 text = "Sign Up",
                 fontSize = 12.sp,
-                color = Color.White,
+                color = Color.Blue,
                 fontFamily = FontFamily.Serif,
                 modifier = Modifier.fillMaxWidth()
+                    .clickable(
+                        enabled = true,
+                        onClick = { /*TODO*/ },
+                        onClickLabel = "Sign Up"
+                    )
             )
+        }
     }
 }
 
