@@ -64,8 +64,8 @@ dependencies {
     debugImplementation("androidx.compose.ui:ui-tooling")
     debugImplementation("androidx.compose.ui:ui-test-manifest")
 
-    implementation("androidx.tv:tv-foundation:1.0.0-alpha04")
-    implementation("androidx.tv:tv-material:1.0.0-alpha04")
+    implementation("io.coil-kt:coil-compose:2.0.0-rc01")
+    implementation("androidx.compose.ui:ui-util")
 
     //implementation(platform("com.google.firebase:firebase-bom:32.2.3"))
     //implementation("com.google.firebase:firebase-auth-ktx")
