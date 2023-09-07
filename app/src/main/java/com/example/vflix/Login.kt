@@ -50,7 +50,6 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.text.style.TextAlign
-import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 
@@ -69,6 +68,8 @@ fun BelowLoginScreen() {
         }
     }
 }
+
+var passwordVisibility by mutableStateOf(false)
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
