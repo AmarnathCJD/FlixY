@@ -72,6 +72,11 @@ dependencies {
     implementation("androidx.compose.runtime:runtime-livedata:1.0.4")
     implementation("com.squareup.okhttp3:okhttp:4.9.1")
     implementation("com.google.code.gson:gson:2.8.8")
+    implementation("androidx.navigation:navigation-compose:2.4.0-alpha10")
+
+    implementation("com.google.android.exoplayer:exoplayer:2.16.1")
+
+
 
     //implementation(platform("com.google.firebase:firebase-bom:32.2.3"))
     //implementation("com.google.firebase:firebase-auth-ktx")

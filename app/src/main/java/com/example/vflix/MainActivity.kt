@@ -8,6 +8,7 @@ import androidx.activity.viewModels
 import androidx.annotation.RequiresApi
 import androidx.compose.runtime.*
 import androidx.compose.runtime.livedata.observeAsState
+import androidx.navigation.NavHostController
 
 class MainActivity : ComponentActivity() {
     private val movieViewModel: MovieViewModel by viewModels()
@@ -17,7 +18,9 @@ class MainActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         setContent {
             val movies by movieViewModel.movies.observeAsState(emptyList())
-            HomePage(titles = movies)
+            //HomePage(titles = movies)
+            //SearchPannel(NavHostController(this))
+            MainContent()
         }
 
         movieViewModel.fetchMovies()
