@@ -12,7 +12,7 @@ android {
         minSdk = 24
         targetSdk = 33
         versionCode = 1
-        versionName = "1.0"
+        versionName = "1.4beta"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         vectorDrawables {
@@ -74,8 +74,9 @@ dependencies {
     implementation("com.google.code.gson:gson:2.8.8")
     implementation("androidx.navigation:navigation-compose:2.4.0-alpha10")
 
-    implementation("com.google.android.exoplayer:exoplayer:2.16.1")
-
+    implementation("androidx.media3:media3-exoplayer:1.1.1")
+    implementation("androidx.media3:media3-exoplayer-hls:1.1.0")
+    implementation("androidx.media3:media3-ui:1.1.1")
 
 
     //implementation(platform("com.google.firebase:firebase-bom:32.2.3"))

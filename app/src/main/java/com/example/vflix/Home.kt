@@ -24,7 +24,6 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.wrapContentSize
 import androidx.compose.foundation.lazy.LazyRow
@@ -38,17 +37,21 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.AccountCircle
+import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.Search
+import androidx.compose.material3.BottomAppBar
 import androidx.compose.material3.Card
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.MenuDefaults
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.derivedStateOf
+import androidx.compose.runtime.MutableState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -56,7 +59,6 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.draw.paint
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.layout.ContentScale
@@ -65,9 +67,7 @@ import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.util.lerp
-import androidx.lifecycle.LiveData
-import androidx.lifecycle.MutableLiveData
-import androidx.lifecycle.ViewModel
+import androidx.navigation.NavHostController
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
@@ -75,22 +75,60 @@ import coil.compose.AsyncImage
 import coil.request.ImageRequest
 import com.example.vflix.ui.theme.sans_bold
 import com.google.gson.Gson
-import java.io.IOException
-import kotlin.math.absoluteValue
 import kotlinx.coroutines.delay
 import okhttp3.Call
 import okhttp3.Callback
 import okhttp3.OkHttpClient
 import okhttp3.Request
 import okhttp3.Response
+import java.io.IOException
+import kotlin.math.absoluteValue
 
-var TEST_IMAGE_URLS =
-    arrayOf(
-        "https://m.media-amazon.com/images/M/MV5BNDJjMzc4NGYtZmFmNS00YWY3LThjMzQtYzJlNGFkZGRiOWI1XkEyXkFqcGdeQXVyMTkxNjUyNQ@@._V1_QL75_UX380_CR0,0,380,562_.jpg",
-        "https://m.media-amazon.com/images/M/MV5BNjJkYTI1MjAtNTcxZC00YmU5LWExMDAtZTg3YzRhMDNmYmEwXkEyXkFqcGdeQXVyMTEyMjM2NDc2._V1_FMjpg_UX604_.jpg",
-        "https://m.media-amazon.com/images/M/MV5BODI0ZTljYTMtODQ1NC00NmI0LTk1YWUtN2FlNDM1MDExMDlhXkEyXkFqcGdeQXVyMTM0NTUzNDIy._V1_.jpg",
-        "https://m.media-amazon.com/images/M/MV5BYTRmMWQxZGEtZTZiMS00ZTRiLWIyYmMtMzNmMmRjZjYyNGUyXkEyXkFqcGdeQXVyMTUzOTcyODA5._V1_.jpg",
-    )
+data class PrevNav (
+    var prevPage: String,
+    var prevID: String,
+    var prevName: String,
+    var prevMediaType: String,
+    var prevSearch: String,
+    var se: Pair<Int, Int> = Pair(1, 1),
+)
+
+var prevPageHistory = mutableListOf<PrevNav>()
+
+var randomGenres = arrayOf(
+    "Action",
+    "Adventure",
+    "Animation",
+    "Biography",
+    "Comedy",
+    "Crime",
+    "Documentary",
+    "Drama",
+    "Family",
+    "Fantasy",
+    "Film-Noir",
+    "Game-Show",
+    "History",
+    "Horror",
+    "Music",
+    "Musical",
+    "Mystery",
+    "News",
+    "Reality-TV",
+    "Romance",
+    "Sci-Fi",
+    "Sport",
+    "Talk-Show",
+    "Thriller",
+    "War",
+    "Western"
+)
+
+
+var clickedName = ""
+var clickedID =  ""
+var mediaType =""
+var titles = mutableStateOf(emptyList<TmdbTitleMin>())
 
 @Composable
 fun EnterAnimation(content: @Composable () -> Unit) {
@@ -113,8 +151,15 @@ fun EnterAnimation(content: @Composable () -> Unit) {
 @RequiresApi(Build.VERSION_CODES.Q)
 @OptIn(ExperimentalFoundationApi::class, ExperimentalMaterial3Api::class)
 @Composable
-fun HomePage(titles: List<Title>) {
-    val navController = rememberNavController()
+fun HomePage() {
+    var navController = rememberNavController()
+    LaunchedEffect(Unit) {
+        if (titles.value.isNullOrEmpty()) {
+            fetchMovies(titles)
+        }
+    }
+
+
     NavHost(navController, startDestination = "homePage") {
         composable(route = "homePage") {
             val pagerState = rememberPagerState(initialPage = 0, initialPageOffsetFraction = 0.0f)
@@ -123,19 +168,15 @@ fun HomePage(titles: List<Title>) {
                     state = pagerState,
                     pagerSnapDistance = PagerSnapDistance.atMost(2)
                 )
-            val featuredItems = titles.take(5)
+            var featuredItems = emptyList<TmdbTitleMin>()
+            if (!titles.value.isNullOrEmpty()) {
+                featuredItems = titles.value.take(15).shuffled()
+            }
             Column(
                 modifier =
                 Modifier
                     .fillMaxSize()
-                    .paint(
-                        painter =
-                        painterResource(
-                            R.drawable
-                                .photo_background_green_textured_wall_rolling_floor_studio_photography_background_illuminated
-                        ),
-                        contentScale = ContentScale.Crop,
-                    )
+                    .background(Color(0xFF0D0D0D))
             ) {
                 Column(
                     modifier =
@@ -166,11 +207,21 @@ fun HomePage(titles: List<Title>) {
 
                                 Image(
                                     imageVector = Icons.Filled.Search,
-                                    contentDescription = "Mm",
+                                    contentDescription = null,
                                     modifier = Modifier
                                         .height(52.dp)
                                         .padding(horizontal = 8.dp, vertical = 15.dp)
-                                        .clickable {  navController.navigate("searchPannel") },
+                                        .clickable {
+                                            prevPageHistory.add(
+                                                PrevNav(
+                                                    prevPage = "homePage",
+                                                    prevID = clickedID,
+                                                    prevName = clickedName,
+                                                    prevMediaType = mediaType,
+                                                    prevSearch = searchValue.value,
+                                                )
+                                            )
+                                            navController.navigate("searchPanel") },
                                     contentScale = ContentScale.Crop,
                                     colorFilter =
                                     androidx.compose.ui.graphics.ColorFilter.lighting(
@@ -191,7 +242,7 @@ fun HomePage(titles: List<Title>) {
                     Spacer(modifier = Modifier.height(12.dp))
                     Row {
                         HorizontalPager(
-                            pageCount = 5,
+                            pageCount = 15,
                             state = pagerState,
                             flingBehavior = fling,
                             beyondBoundsPageCount = 2,
@@ -199,7 +250,10 @@ fun HomePage(titles: List<Title>) {
                             val showShimmer = remember { mutableStateOf(true) }
                             Card(
                                 Modifier
-                                    .size(height = 380.dp, width = 280.dp)
+                                    .fillMaxSize()
+                                    .padding(
+                                        horizontal = 20.dp,
+                                    )
                                     .graphicsLayer {
                                         val pageOffset =
                                             ((pagerState.currentPage - page) +
@@ -217,21 +271,45 @@ fun HomePage(titles: List<Title>) {
                                     model =
                                     ImageRequest.Builder(LocalContext.current)
                                         .data(
-                                            featuredItems.getOrNull(page)?.poster?.url
-                                                ?: TEST_IMAGE_URLS[page]
+                                            "https://image.tmdb.org/t/p/w1280" + featuredItems.getOrNull(
+                                                page
+                                            )?.poster
                                         )
                                         .crossfade(true)
                                         .build(),
-                                    contentDescription = "Movie Poster",
+                                    contentDescription = "Title Poster",
                                     contentScale = ContentScale.Crop,
-                                    modifier = Modifier.fillMaxSize()
+                                    modifier = Modifier
+                                        .fillMaxSize()
                                         .background(
                                             shimmerBrush(
                                                 targetValue = 1300f,
                                                 showShimmer = showShimmer.value
                                             )
-                                        ),
-                                    error = painterResource(R.drawable.ic_launcher_background),
+                                        )
+                                        .background(
+                                            Color.Transparent
+                                        )
+                                        .clickable {
+                                            clickedName =
+                                                featuredItems.getOrNull(page)?.title ?: featuredItems.getOrNull(
+                                                    page
+                                                )?.name ?: "-"
+                                            clickedID =
+                                                featuredItems.getOrNull(page)?.id ?: "tt4154796"
+                                            mediaType = featuredItems.getOrNull(page)?.media_type
+                                                ?: "movie"
+                                            prevPageHistory.add(
+                                                PrevNav(
+                                                    prevPage = "homePage",
+                                                    prevID = clickedID,
+                                                    prevName = clickedName,
+                                                    prevMediaType = mediaType,
+                                                    prevSearch = searchValue.value,
+                                                )
+                                            )
+                                            navController.navigate("videoScreen")
+                                        },
                                     onSuccess = {
                                         showShimmer.value = false
                                     }
@@ -244,7 +322,7 @@ fun HomePage(titles: List<Title>) {
                             delay(4000)
                             if (featuredItems.isEmpty()) continue
                             val nextPage = pagerState.currentPage + 1
-                            if (nextPage >= 5) {
+                            if (nextPage >= 15) {
                                 pagerState.animateScrollToPage(0) // Go back to the first page
                             } else {
                                 pagerState.animateScrollToPage(nextPage)
@@ -260,14 +338,173 @@ fun HomePage(titles: List<Title>) {
                             .padding(horizontal = 8.dp, vertical = 5.dp),
                         horizontalArrangement = Arrangement.SpaceBetween
                     ) {
-                        TrendingBar(titles)
-                        }
+                        TrendingBar(titles.value, navController)
                     }
+                    Spacer(modifier = Modifier.height(12.dp))
+                    BottomAppBar(
+                        //elevation = FloatingActionButtonDefaults.elevation(
+                            //defaultElevation = 4.dp,
+                        //),
+                        containerColor = Color.Transparent,
+                        //onClick = { navController.navigate("searchPanel") },
+                        content = {
+                            Row(
+                                modifier =
+                                Modifier
+                                    .fillMaxSize()
+                                    .padding(horizontal = 8.dp, vertical = 5.dp),
+                                horizontalArrangement = Arrangement.SpaceEvenly
+                            ) {
+                                Row(
+                                    modifier =
+                                    Modifier
+
+                                        .background(Color.Black),
+                                    horizontalArrangement = Arrangement.SpaceBetween
+                                ) {
+                                    Column(
+                                        verticalArrangement = Arrangement.Center,
+                                        horizontalAlignment = Alignment.CenterHorizontally,
+                                        modifier = Modifier
+
+                                            .background(Color.Black)
+                                    ) {
+                                        Image(
+                                            imageVector = Icons.Filled.Home,
+                                            contentDescription = null,
+                                            modifier = Modifier
+                                                //
+                                                .padding(horizontal = 8.dp)
+                                                .padding(
+                                                    top = 8.dp,
+                                                )
+                                                .clickable { navController.navigate("homePage") },
+                                            contentScale = ContentScale.Crop,
+                                            colorFilter =
+                                            androidx.compose.ui.graphics.ColorFilter.lighting(
+                                                add = Color(0xFFFFFFFF),
+                                                multiply = Color.White
+                                            )
+                                        )
+                                        Text(
+                                            text = "Home",
+                                            fontSize = 8.sp,
+                                            fontFamily = sans_bold,
+                                            color = Color.White,
+                                            modifier = Modifier
+                                                .padding(horizontal = 8.dp)
+                                                .padding(
+                                                    bottom = 8.dp,
+                                                )
+                                        )
+                                    }
+                                }
+                                Row(
+                                    modifier =
+                                    Modifier
+
+                                        .background(Color.Black),
+                                    horizontalArrangement = Arrangement.SpaceBetween
+                                ) {
+                                    Column(
+                                        verticalArrangement = Arrangement.Center,
+                                        horizontalAlignment = Alignment.CenterHorizontally,
+                                        modifier = Modifier
+
+                                            .background(Color.Black)
+                                    ) {
+                                        Image(
+                                            imageVector = Icons.Filled.Search,
+                                            contentDescription = null,
+                                            modifier = Modifier
+                                                //
+                                                .padding(horizontal = 8.dp)
+                                                .padding(
+                                                    top = 8.dp,
+                                                )
+                                                .clickable { navController.navigate("searchPanel") },
+                                            contentScale = ContentScale.Crop,
+                                            colorFilter =
+                                            androidx.compose.ui.graphics.ColorFilter.lighting(
+                                                add = Color(0xFFFFFFFF),
+                                                multiply = Color.White
+                                            )
+                                        )
+                                        Text(
+                                            text = "Search",
+                                            fontSize = 8.sp,
+                                            fontFamily = sans_bold,
+                                            color = Color.White,
+                                            modifier = Modifier
+                                                .padding(horizontal = 8.dp)
+                                                .padding(
+                                                    bottom = 8.dp,
+                                                )
+                                        )
+                                    }
+                                }
+
+                                Row(
+                                    modifier =
+                                    Modifier
+
+                                        .background(Color.Black),
+                                    horizontalArrangement = Arrangement.SpaceBetween
+                                ) {
+                                    Column(
+                                        verticalArrangement = Arrangement.Center,
+                                        horizontalAlignment = Alignment.CenterHorizontally,
+                                        modifier = Modifier
+
+                                            .background(Color.Black)
+                                    ) {
+                                        Image(
+                                            imageVector = Icons.Filled.AccountCircle,
+                                            contentDescription = null,
+                                            modifier = Modifier
+                                                //
+                                                .padding(horizontal = 8.dp)
+                                                .padding(
+                                                    top = 8.dp,
+                                                )
+                                                //.clickable { navController.navigate("searchPanel") },
+                                            ,contentScale = ContentScale.Crop,
+                                            colorFilter =
+                                            androidx.compose.ui.graphics.ColorFilter.lighting(
+                                                add = Color(0xFFFFFFFF),
+                                                multiply = Color.White
+                                            )
+                                        )
+                                        Text(
+                                            text = "Account",
+                                            fontSize = 8.sp,
+                                            fontFamily = sans_bold,
+                                            color = Color.White,
+                                            modifier = Modifier
+                                                .padding(horizontal = 8.dp)
+                                                .padding(
+                                                    bottom = 8.dp,
+                                                )
+                                        )
+                                    }
+
+                                }
+                            }
+                        }
+                    )
                 }
             }
-        composable(route = "searchPannel") {
+        }
+        composable(route = "searchPanel") {
             EnterAnimation {
-                SearchPannel(navController)
+                SearchPanel(navController)
+            }
+        }
+        composable(route = "videoScreen") {
+            EnterAnimation {
+                VideoScreen(
+                    nav = navController,
+                )
             }
         }
     }
@@ -277,13 +514,13 @@ fun HomePage(titles: List<Title>) {
 fun TopCategoryHome() {
     var expanded by remember { mutableStateOf(false) }
     var selectedCategory by remember { mutableStateOf("Categories") }
-    val categories = listOf("TO", "DO")
+    val categories = randomGenres
 
     Row(
         horizontalArrangement = Arrangement.SpaceBetween,
         modifier = Modifier
-            .width(230.dp)
-            .padding(horizontal = 8.dp, vertical = 5.dp)
+            .width(290.dp)
+            .padding(horizontal = 12.dp, vertical = 5.dp)
     ) {
         Box(
             modifier =
@@ -299,7 +536,8 @@ fun TopCategoryHome() {
         ) {
             Text(
                 text = "TV Shows",
-                fontSize = 12.sp,
+                fontSize = 14.sp,
+                fontFamily = sans_bold,
                 color = Color.LightGray,
                 modifier = Modifier.padding(horizontal = 10.dp, vertical = 5.dp)
             )
@@ -319,7 +557,8 @@ fun TopCategoryHome() {
         ) {
             Text(
                 text = "Movies",
-                fontSize = 12.sp,
+                fontFamily = sans_bold,
+                fontSize = 14.sp,
                 color = Color.LightGray,
                 modifier = Modifier.padding(horizontal = 10.dp, vertical = 5.dp)
             )
@@ -339,7 +578,8 @@ fun TopCategoryHome() {
         ) {
             Text(
                 text = selectedCategory,
-                fontSize = 12.sp,
+                fontSize = 14.sp,
+                fontFamily = sans_bold,
                 color = Color.LightGray,
                 modifier =
                 Modifier
@@ -353,7 +593,10 @@ fun TopCategoryHome() {
                         onClick = {
                             selectedCategory = category
                             expanded = false
-                        }
+                        },
+                        colors = MenuDefaults.itemColors(
+// color Set
+                        )
                     )
                 }
             }
@@ -361,23 +604,7 @@ fun TopCategoryHome() {
     }
 }
 
-@RequiresApi(Build.VERSION_CODES.Q)
-@Composable
-fun TrendingBar(titles: List<Title>) {
-    Column {
-        Row {
-            Text(
-                text = "Trending Now",
-                fontSize = 18.sp,
-                fontFamily = sans_bold,
-                color = Color.White
-            )
-        }
-        TrendingPageBar(titles)
-    }
-}
-
-data class Poster(val url: String, val height: Int, val width: Int)
+data class Poster(var url: String, val height: Int, val width: Int)
 
 data class Title(
     val title: String,
@@ -387,71 +614,181 @@ data class Title(
     val type: String
 )
 
-class MovieViewModel : ViewModel() {
-    private val _movies = MutableLiveData<List<Title>>()
-    val movies: LiveData<List<Title>>
-        get() = _movies
+data class GenreTitle(
+    val title: String,
+    val id: String,
+    @com.google.gson.annotations.SerializedName("poster_url") val poster: String,
+    val year: String,
+)
 
-    fun fetchMovies() {
-        val client = OkHttpClient()
-        val request =
-            Request.Builder().url("https://a.ztorr.me/api/imdb?trending=1&i=true&limit=25").build()
+data class Genre(
+    val genre: String,
+    @com.google.gson.annotations.SerializedName("result") val results: List<GenreTitle>,
+)
 
-        client
-            .newCall(request)
-            .enqueue(
-                object : Callback {
-                    override fun onFailure(call: Call, e: IOException) {
-                        // Handle network request failure
-                    }
+fun fetchMovies(movies: MutableState<List<TmdbTitleMin>>) {
+    val client = OkHttpClient()
+    val request =
+        Request.Builder()
+            .url("https://api.themoviedb.org/3/trending/all/day?api_key=d56e51fb77b081a9cb5192eaaa7823ad&page=${(1..5).random()}")
+            .build()
 
-                    override fun onResponse(call: Call, response: Response) {
-                        val json = response.body?.string()
-                        val movies = Gson().fromJson(json, Array<Title>::class.java).toList()
-                        _movies.postValue(movies)
-                    }
+    client
+        .newCall(request)
+        .enqueue(
+            object : Callback {
+                override fun onFailure(call: Call, e: IOException) {
+                    // Handle network request failure
                 }
-            )
-    }
+
+                override fun onResponse(call: Call, response: Response) {
+                    val json = response.body?.string()
+                    val moviesVar = Gson().fromJson(json, TmdbSimilar::class.java)
+                    movies.value = moviesVar.results
+                }
+            }
+        )
 }
 
 @Composable
-fun TrendingPageBar(items: List<Title>) {
-    val items = items.drop(5)
-    val shuffledItems = remember(items) { items.shuffled() }
-
-    val lazyListState = rememberLazyListState()
-
-    LaunchedEffect(remember { derivedStateOf { lazyListState.layoutInfo } }) {
-        val layoutInfo = lazyListState.layoutInfo
-        val firstVisibleItemIndex = layoutInfo.visibleItemsInfo.firstOrNull()?.index ?: 0
-        val lastVisibleItemIndex = layoutInfo.visibleItemsInfo.lastOrNull()?.index ?: 0
-        val preloadOffset = 6
-
-        val startIndex = maxOf(0, firstVisibleItemIndex - preloadOffset)
-        val endIndex =
-            minOf(
-                lazyListState.layoutInfo.totalItemsCount - 1,
-                lastVisibleItemIndex + preloadOffset
+fun TrendingBar(
+    _items: List<TmdbTitleMin>,
+    navController: NavHostController
+) {
+    Column {
+        Row {
+            Text(
+                text = "Trending Now",
+                fontSize = 18.sp,
+                fontFamily = sans_bold,
+                color = Color.White
             )
+        }
+        var shuffledItems = emptyList<TmdbTitleMin>()
+        if (!_items.isNullOrEmpty()) {
+            val items = _items.drop(15)
+            shuffledItems = items.shuffled()
+        }
 
-        // Preload data for items in the range [startIndex, endIndex]
-        for (index in startIndex..endIndex) {
-            // Preload data for item at index
-            // Example: preloadData(index)
+        val lazyListState = rememberLazyListState()
+
+        Row {
+            var pageSize = shuffledItems.size / 3
+            if (pageSize == 0) {
+                pageSize = 1
+            }
+            LazyRow(
+                modifier =
+                Modifier
+                    .clip(RoundedCornerShape(12.dp)),
+                state = lazyListState,
+            ) {
+                itemsIndexed(shuffledItems) { index, item ->
+                    val showShimmer = remember { mutableStateOf(true) }
+                    val pageIndex = index / pageSize
+                    val pageStartIndex = pageIndex * pageSize
+                    val pageEndIndex = (pageIndex + 1) * pageSize - 1
+
+                    if (index in pageStartIndex..pageEndIndex) {
+                        Box(
+                            modifier = Modifier
+                                .width(120.dp)
+                                .height(180.dp)
+                                .padding(4.dp)
+                            // .background(Color.LightGray)
+                        ) {
+                            AsyncImage(
+                                model =
+                                ImageRequest.Builder(LocalContext.current)
+                                    .data("https://image.tmdb.org/t/p/w342" + item.poster)
+                                    .crossfade(true)
+                                    .build(),
+                                contentDescription = "Movie Poster",
+                                contentScale = ContentScale.Crop,
+                                modifier = Modifier
+                                    .fillMaxSize()
+                                    .clip(RoundedCornerShape(12.dp))
+                                    .background(
+                                        shimmerBrush(
+                                            targetValue = 1300f,
+                                            showShimmer = showShimmer.value
+                                        )
+                                    )
+                                    .clickable {
+                                        if (!item.title.isNullOrEmpty()) {
+                                            clickedName = item.title
+                                        } else {
+                                            clickedName = item.name
+                                        }
+                                        clickedID = item.id
+                                        mediaType = item.media_type
+                                        prevPageHistory.add(
+                                            PrevNav(
+                                                prevPage = "homePage",
+                                                prevID = clickedID,
+                                                prevName = clickedName,
+                                                prevMediaType = mediaType,
+                                                prevSearch = "",
+                                            )
+                                        )
+                                        navController.navigate("videoScreen")
+                                    },
+                                onSuccess = {
+                                    showShimmer.value = false
+                                }
+                            )
+                            Spacer(modifier = Modifier.width(4.dp))
+                        }
+                    }
+                }
+            }
+        }
+
+
+        randomGenres = randomGenres.toList().shuffled().take(6).toTypedArray()
+        val data = remember { mutableStateOf<List<Genre>>(emptyList()) }
+        LaunchedEffect(Unit) {
+            fetchGenres(randomGenres, data)
+        }
+        if (!data.value.isNullOrEmpty() && !data.value[0].results.isNullOrEmpty()) {
+            for (genre in data.value) {
+                TitleGenreBar(genre.genre, navController, genre.results)
+            }
         }
     }
+}
 
+
+@Composable
+fun TitleGenreBar(
+    genre: String,
+    navController: NavHostController,
+    data: List<GenreTitle>
+) {
     Row {
-        val pageSize = items.size / 3
+        Text(
+            text = "Top $genre Titles",
+            fontSize = 18.sp,
+            fontFamily = sans_bold,
+            color = Color.White,
+            modifier = Modifier.padding(top = 10.dp)
+        )
+    }
+    Row {
+        val lazyListState = rememberLazyListState()
+        var pageSize = data.size / 3
+        if (pageSize == 0) {
+            pageSize = 1
+        }
+
+
         LazyRow(
             modifier =
             Modifier
-                // .fillMaxWidth()
                 .clip(RoundedCornerShape(12.dp)),
             state = lazyListState,
         ) {
-            itemsIndexed(shuffledItems) { index, item ->
+            itemsIndexed(data) { index, item ->
                 val showShimmer = remember { mutableStateOf(true) }
                 val pageIndex = index / pageSize
                 val pageStartIndex = pageIndex * pageSize
@@ -468,7 +805,10 @@ fun TrendingPageBar(items: List<Title>) {
                         AsyncImage(
                             model =
                             ImageRequest.Builder(LocalContext.current)
-                                .data(item.poster?.url ?: TEST_IMAGE_URLS[0])
+                                .data(
+                                    item.poster.split(".jpg")[0] + "QL75_UX380_CR0,0,380,562.jpg"
+                                        ?: ""
+                                )
                                 .crossfade(true)
                                 .build(),
                             contentDescription = "Movie Poster",
@@ -481,16 +821,55 @@ fun TrendingPageBar(items: List<Title>) {
                                         targetValue = 1300f,
                                         showShimmer = showShimmer.value
                                     )
-                                ),
-                            error = painterResource(R.drawable.ic_launcher_background),
+                                )
+                                .clickable {
+                                    clickedName = item.title
+                                    clickedID = item.id
+                                    mediaType = "movie"
+                                    prevPageHistory.add(
+                                        PrevNav(
+                                            prevPage = "homePage",
+                                            prevID = clickedID,
+                                            prevName = clickedName,
+                                            prevMediaType = mediaType,
+                                            prevSearch = "",
+                                        )
+                                    )
+                                    navController.navigate("videoScreen")
+                                },
                             onSuccess = {
                                 showShimmer.value = false
                             }
                         )
-                        Spacer(modifier = Modifier.width(4.dp))
+
                     }
                 }
             }
         }
     }
+
 }
+
+fun fetchGenres(genres: Array<String>, data: MutableState<List<Genre>>): Int {
+    val client = OkHttpClient()
+    val request =
+        Request.Builder()
+            .url("https://a.ztorr.me/api/imdb?genres=${genres.joinToString(",")}&limit=20").build()
+    client
+        .newCall(request)
+        .enqueue(
+            object : Callback {
+                override fun onFailure(call: Call, e: IOException) {
+                    // Handle network request failure
+                }
+
+                override fun onResponse(call: Call, response: Response) {
+                    val json = response.body?.string()
+                    val movies = Gson().fromJson(json, Array<Genre>::class.java).toList()
+                    data.value = movies.toMutableList()
+                }
+            }
+        )
+    return 3
+}
+
