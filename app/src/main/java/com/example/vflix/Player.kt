@@ -5,9 +5,12 @@ import android.content.Context
 import android.content.ContextWrapper
 import android.content.pm.ActivityInfo
 import android.content.res.Configuration
+import android.os.Build
+import android.os.Handler
 import android.view.ViewGroup.LayoutParams.MATCH_PARENT
 import android.widget.FrameLayout
 import androidx.activity.compose.BackHandler
+import androidx.annotation.RequiresApi
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
@@ -37,6 +40,7 @@ import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material.icons.filled.ArrowDropDown
 import androidx.compose.material.icons.filled.Home
+import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Share
 import androidx.compose.material.icons.filled.ThumbUp
@@ -51,6 +55,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.MutableState
 import androidx.compose.runtime.getValue
@@ -65,12 +70,16 @@ import androidx.compose.ui.graphics.ColorFilter
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalLifecycleOwner
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.viewinterop.AndroidView
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
+import androidx.lifecycle.LifecycleOwner
 import androidx.media3.common.MediaItem
 import androidx.media3.common.PlaybackException
 import androidx.media3.common.Player
@@ -84,6 +93,13 @@ import androidx.navigation.NavHostController
 import androidx.navigation.compose.rememberNavController
 import coil.compose.AsyncImage
 import coil.request.ImageRequest
+import com.example.vflix.auth.addWatched
+import com.example.vflix.auth.getLastSE
+import com.example.vflix.auth.getPlaybackTime
+import com.example.vflix.auth.hasWatched
+import com.example.vflix.auth.updateSeek
+import com.example.vflix.parser.fetchAndExtractSources
+import com.example.vflix.parser.getBest
 import com.example.vflix.ui.theme.sans_bold
 import com.google.gson.Gson
 import okhttp3.Call
@@ -93,22 +109,29 @@ import okhttp3.Response
 import java.io.IOException
 import kotlin.random.Random
 
-val currentSE =  mutableStateOf(Pair(1, 1)) // Season, Episode
+val currentSE = mutableStateOf(Pair(1, 1))
+var killThreads = false
+var playbackStartPosition = 0L
+var showReplayButton = mutableStateOf(false)
+var shouldPlay = mutableStateOf(true)
+
 
 data class PlayerError(
     var show: Boolean = false,
     var message: String = ""
 )
 
-@OptIn(ExperimentalMaterial3Api::class, ExperimentalFoundationApi::class)
+@RequiresApi(Build.VERSION_CODES.Q)
+@OptIn(
+    ExperimentalMaterial3Api::class, ExperimentalFoundationApi::class
+)
 @androidx.annotation.OptIn(androidx.media3.common.util.UnstableApi::class)
 @Composable
 fun VideoScreen(
     nav: NavHostController = rememberNavController(),
 ) {
-    val hlsSource = remember { mutableStateOf(CDN(listOf(), listOf(), "")) }
+    val hlsSource = remember { mutableStateOf(com.example.vflix.parser.CDN(listOf(), "")) }
     val isF = remember { mutableStateOf(false) }
-    val playbackStopped = remember { mutableStateOf(false) }
     val playerErr = remember { mutableStateOf(PlayerError()) }
     val imdbIdState = remember { mutableStateOf(clickedID) }
     val showSpinner = remember { mutableStateOf(true) }
@@ -155,6 +178,7 @@ fun VideoScreen(
             context.setScreenOrientation(orientation = ActivityInfo.SCREEN_ORIENTATION_PORTRAIT)
         } else {
             player.stop()
+            player.release()
             if (prevPageHistory.size == 1) {
                 nav.navigate("homePage")
             } else {
@@ -168,6 +192,7 @@ fun VideoScreen(
             }
         }
     }
+
 
     val configuration = LocalConfiguration.current
     LaunchedEffect(Unit) {
@@ -194,7 +219,8 @@ fun VideoScreen(
                 .background(Color.Black)
                 .verticalScroll(rememberScrollState())
         },
-    ) {
+
+        ) {
         if (!isF.value) {
             TopAppBar(
                 title = {
@@ -207,6 +233,7 @@ fun VideoScreen(
                                 .padding(horizontal = 12.dp, vertical = 15.dp)
                                 .clickable {
                                     player.stop()
+                                    killThreads = true
                                     if (prevPageHistory.size == 1) {
                                         nav.navigate("homePage")
                                     } else {
@@ -265,7 +292,6 @@ fun VideoScreen(
 
         Column(
             modifier = if (isF.value) {
-                println("Filling max size")
                 Modifier
                     .fillMaxSize()
                     .fillMaxHeight()
@@ -319,6 +345,22 @@ fun VideoScreen(
                     "Movie"
                 }
             }
+            if (!hasWatched(clickedID)) {
+                val season = currentSE.value.first
+                val episode = currentSE.value.second
+                Thread {
+                    addWatched(
+                        clickedID,
+                        mediaType,
+                        season,
+                        episode,
+                        0,
+                    )
+                }.start()
+            } else {
+                currentSE.value = getLastSE(clickedID)
+                playbackStartPosition = getPlaybackTime(clickedID, currentSE.value.first, currentSE.value.second)
+            }
             if (!contentType.isNullOrEmpty() && imdbIdState.value != "") {
                 if (hlsSource.value.sources.isEmpty()) {
                     fetchSourceFromIMDBID(
@@ -333,15 +375,47 @@ fun VideoScreen(
                 }
                 if (hlsSource.value.getBest() != "") {
                     showSpinner.value = false
-                    VideoPlayer(player, hlsSource.value.getBest(), isF, playbackStopped, context)
+                    VideoPlayer(player, hlsSource.value.getBest(), isF, context)
                 }
             }
 
         }
-        if (!isF.value && !imdbTTState.value.id.isNullOrEmpty()) {
-            MediaMetadata(imdbTTState)
+        if (!contentType.isNullOrEmpty() && contentType.contains("TV")) {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 30.dp, vertical = 5.dp),
+                horizontalArrangement = Arrangement.Center
+            ) {
+                Image(
+                    imageVector = Icons.Filled.PlayArrow,
+                    contentDescription = null,
+                    modifier = Modifier.padding(
+                        top = 2.dp
+                    ),
+                    colorFilter =
+                    ColorFilter.tint(
+                        Color.Yellow
+                    )
+                )
+                var season = currentSE.value.first.toString()
+                var episode = currentSE.value.second.toString()
+                if (season.length == 1) {
+                    season = "0$season"
+                }
+                if (episode.length == 1) {
+                    episode = "0$episode"
+                }
+                Text(
+                    text = "Playing S${season} E${episode}",
+                    fontFamily = sans_bold,
+                    color = Color.White,
+                    fontSize = 14.sp,
+                    modifier = Modifier
+                        .padding(horizontal = 5.dp, vertical = 5.dp)
+                )
+            }
         }
-
         if (!isF.value && !hlsSource.value.tmdbID.isNullOrEmpty()) {
             if (contentType.contains("TV")) {
                 SeasonAndEpisodeSelector(
@@ -352,6 +426,12 @@ fun VideoScreen(
                     showSpinner
                 )
             }
+        }
+        if (!isF.value && !imdbTTState.value.id.isNullOrEmpty()) {
+            MediaMetadata(imdbTTState)
+        }
+
+        if (!isF.value && !hlsSource.value.tmdbID.isNullOrEmpty()) {
             if (!imdbTTState.value.id.isNullOrEmpty()) {
                 SetSimilarTitles(
                     imdbTTState.value.similarTitles,
@@ -363,13 +443,13 @@ fun VideoScreen(
     }
 }
 
+
 @androidx.annotation.OptIn(androidx.media3.common.util.UnstableApi::class)
 @Composable
 fun VideoPlayer(
     player: ExoPlayer,
     hslSource: String,
     isF: MutableState<Boolean>,
-    playbackStopped: MutableState<Boolean>,
     context: Context
 ) {
     val dataSourceFactory: DataSource.Factory = DefaultHttpDataSource.Factory()
@@ -386,12 +466,64 @@ fun VideoPlayer(
         }
     )
 
+    // on playback ended, add a button on bottom right over the player to replay
+    player.addListener(
+        object : Player.Listener {
+            override fun onPlaybackStateChanged(state: Int) {
+                if (state == Player.STATE_ENDED) {
+                    showReplayButton.value = true
+                }
+            }
+        }
+    )
+
+    var lastRecordedPosition = 0L
+    var currPosition: Long
+    if (playbackStartPosition != 0L) {
+        player.seekTo(playbackStartPosition)
+    }
+
+    val handler = Handler()
+    val task: Runnable = object : Runnable {
+        override fun run() {
+            if (player.currentPosition > (lastRecordedPosition + 10000L)) {
+                currPosition = player.currentPosition
+                val thread = Thread {
+                    updateSeek(
+                        clickedID,
+                        currentSE.value.first,
+                        currentSE.value.second,
+                        currPosition
+                    )
+                }
+                thread.start()
+                lastRecordedPosition = player.currentPosition
+            }
+            handler.postDelayed(this, 10000)
+        }
+    }
+
+    handler.postDelayed(task, 10000)
+
     player.trackSelectionParameters =
         player.trackSelectionParameters
             .buildUpon()
             .setMaxVideoSize(1920, 1080)
             .setPreferredAudioLanguage("hu")
             .build()
+
+    // on activity pause, pause the player
+    ComposableLifecycle { _, event ->
+        when (event) {
+            Lifecycle.Event.ON_RESUME -> {
+                player.play()
+            }
+            Lifecycle.Event.ON_PAUSE -> {
+                player.pause()
+            }
+            else -> {}
+        }
+    }
 
 
     AndroidView(
@@ -402,9 +534,11 @@ fun VideoPlayer(
                 player.playWhenReady = true
                 setShowSubtitleButton(true)
 
-                if (playbackStopped.value) {
+                if (!shouldPlay.value) {
                     player.stop()
                 }
+
+                // add a button on bottom right over the player to replay
 
                 setControllerOnFullScreenModeChangedListener { isFullScreen ->
                     with(context) {
@@ -426,112 +560,60 @@ fun VideoPlayer(
             .background(Color.Black)
     )
 }
+@Composable
+fun ComposableLifecycle(
+    lifecycleOwner: LifecycleOwner = LocalLifecycleOwner.current,
+    onEvent: (LifecycleOwner, Lifecycle.Event) -> Unit
+) {
+
+    DisposableEffect(lifecycleOwner) {
+        val observer = LifecycleEventObserver { source, event ->
+            onEvent(source, event)
+        }
+        lifecycleOwner.lifecycle.addObserver(observer)
+
+        onDispose {
+            lifecycleOwner.lifecycle.removeObserver(observer)
+        }
+    }
+}
+
 
 data class MediaSrc(
     @com.google.gson.annotations.SerializedName("quality") val quality: String,
     @com.google.gson.annotations.SerializedName("url") val url: String
 )
 
-data class Subtitle(
-    val lang: String,
-    val url: String
-)
-
-data class CDN(
-    @com.google.gson.annotations.SerializedName("media") val sources: List<MediaSrc>,
-    val subtitles: List<Subtitle>,
-    @com.google.gson.annotations.SerializedName("tmdb_id") val tmdbID: String,
-)
-
-fun CDN.getBest(): String {
-    var best = ""
-    var bestQuality = 0
-    for (source in this.sources) {
-        if (source.quality != "auto") {
-            if (source.quality.toInt() > bestQuality) {
-                best = source.url
-                bestQuality = source.quality.toInt()
-            }
-        }
-    }
-    return best
-}
+var isActive = mutableStateOf(false)
 
 fun fetchSourceFromIMDBID(
     imdbID: String,
-    src: MutableState<CDN>,
+    src: MutableState<com.example.vflix.parser.CDN>,
     type: String,
     season: Int = 1,
     episode: Int = 1,
     playerErr: MutableState<PlayerError>,
     showSpinner: MutableState<Boolean>,
-    RETRY: Int = 0
 ) {
-    var url = "https://meh.com?imdb_id=$imdbID"
-    if (type.contains("TV")) {
-        url += "&s=$season&e=$episode"
+    val thread = Thread {
+        Thread.sleep(15000L)
+        if (src.value.sources.isNullOrEmpty()) {
+            playerErr.value = PlayerError(true, "Timeout Refreshing...")
+            showSpinner.value = false
+            isActive.value = false
+            fetchAndExtractSources(imdbID, type, season, episode, src, isActive)
+            Thread.sleep(5000L)
+            if (src.value.sources.isNullOrEmpty()) {
+                playerErr.value = PlayerError(true, "No Sources Found")
+                showSpinner.value = false
+                isActive.value = false
+            }
+        }
+        isActive.value = false
     }
 
-    val client = OkHttpClient()
-    val request = okhttp3.Request.Builder()
-        .url(url)
-        .build()
-
-    client
-        .newCall(request)
-        .enqueue(
-            object : Callback {
-                override fun onFailure(call: Call, e: IOException) {
-                    println("Error, ${e.message}")
-                    e.printStackTrace()
-                }
-
-                override fun onResponse(call: Call, response: Response) {
-                    val json = response.body?.string()
-                    if (json != null) {
-                        if (json.contains("imdb_id is")) {
-                            return
-                        }
-                    }
-                    try {
-                        val movies = Gson().fromJson(json, CDN::class.java)
-                        if (movies.sources.isNullOrEmpty()) {
-                            if (RETRY < 1) {
-                                fetchSourceFromIMDBID(
-                                    imdbID,
-                                    src,
-                                    type,
-                                    season,
-                                    episode,
-                                    playerErr,
-                                    showSpinner,
-                                    RETRY + 1
-                                )
-                                return
-                            } else {
-                                playerErr.value = PlayerError(
-                                    show = true,
-                                    message = "No sources!!!"
-                                )
-                                showSpinner.value = false
-                                return
-                            }
-                        }
-                        src.value = movies
-                    } catch (e: Exception) {
-                        println("Error, ${e.message}")
-                    }
-                }
-            }
-        )
-}
-
-fun Activity.lockOrientation() {
-    requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_LOCKED
-}
-
-fun Activity.unlockOrientation() {
-    requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_FULL_SENSOR
+    thread.start()
+    fetchAndExtractSources(imdbID, type, season, episode, src, isActive)
 }
 
 fun Context.findActivity(): Activity? = when (this) {
@@ -545,13 +627,13 @@ fun Context.setScreenOrientation(orientation: Int) {
     activity.requestedOrientation = orientation
 }
 
+@RequiresApi(Build.VERSION_CODES.Q)
 @Composable
 fun MediaMetadata(imdbTTState: MutableState<ImdbTitle>) {
     val imdbTT = imdbTTState.value
 
     Column(
         modifier = Modifier
-            //.fillMaxSize()
             .background(Color.Black)
     ) {
         val showShimmer = remember { mutableStateOf(true) }
@@ -560,11 +642,14 @@ fun MediaMetadata(imdbTTState: MutableState<ImdbTitle>) {
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(horizontal = 30.dp, vertical = 5.dp)
+                .background(
+                    Color.Black
+                )
         ) {
             AsyncImage(
                 model =
                 ImageRequest.Builder(LocalContext.current)
-                    .data(imdbTT.poster.url)
+                    .data(imdbTT.poster.url.split("V1_.jpg")[0] + "QL75_UX380_CR0,0,380,562.jpg")
                     .crossfade(true)
                     .build(),
                 contentDescription = "Movie Poster",
@@ -576,6 +661,9 @@ fun MediaMetadata(imdbTTState: MutableState<ImdbTitle>) {
                             targetValue = 1300f,
                             showShimmer = showShimmer.value
                         )
+                    )
+                    .background(
+                        Color(0xFF1F1F1F)
                     )
                     .height(210.dp)
                     .width(130.dp),
@@ -889,6 +977,7 @@ fun fetchIMDBTitle(
                         if (!mediaType.isNullOrEmpty()) {
                             mediaTypeParam = mediaType
                         }
+                        println("XPARAMS: $mediaTypeParam, $imdbID, $imdbIdState, $imdbTT, $mediaType, ${title.imdbID}")
                         fetchIMDBTitle(title.imdbID, imdbTT, mediaTypeParam, imdbIdState)
                     }
                 }
@@ -924,11 +1013,12 @@ fun fetchIMDBTitle(
 }
 
 
+@RequiresApi(Build.VERSION_CODES.Q)
 @Composable
 fun SeasonAndEpisodeSelector(
     tmdbId: String,
     se: MutableState<Pair<Int, Int>>,
-    hlsSource: MutableState<CDN>,
+    hlsSource: MutableState<com.example.vflix.parser.CDN>,
     playerErr: MutableState<PlayerError>,
     showSpinner: MutableState<Boolean>,
 ) {
@@ -1066,9 +1156,9 @@ fun SeasonAndEpisodeSelector(
                     )
                     .height(
                         if (episodes.value.size > 3) {
-                            700.dp
+                            500.dp
                         } else {
-                            350.dp
+                            300.dp
                         }
                     )
                     .clip(RoundedCornerShape(12.dp))
@@ -1107,14 +1197,26 @@ fun SeasonAndEpisodeSelector(
                                             .width(160.dp)
                                             .clip(RoundedCornerShape(5.dp))
                                             .clickable {
+                                                Thread {
+                                                    addWatched(
+                                                        clickedID,
+                                                        mediaType,
+                                                        selectedSeason.value,
+                                                        item.num,
+                                                        0,
+                                                    )
+                                                }.start()
                                                 se.value = Pair(
                                                     selectedSeason.value,
                                                     item.num
                                                 )
+                                                currentSE.value = Pair(
+                                                    selectedSeason.value,
+                                                    item.num
+                                                )
 
-                                                hlsSource.value = CDN(
+                                                hlsSource.value = com.example.vflix.parser.CDN(
                                                     sources = listOf(),
-                                                    subtitles = listOf(),
                                                     tmdbID = tmdbId
                                                 )
                                                 showSpinner.value = true
@@ -1292,6 +1394,7 @@ fun fetchEpisodes(tmdbId: String, season: Int, episodes: MutableState<List<Episo
         )
 }
 
+@RequiresApi(Build.VERSION_CODES.Q)
 @Composable
 fun SetSimilarTitles(
     similarTitles: List<SimilarTitle>,
@@ -1347,7 +1450,7 @@ fun SetSimilarTitles(
                                 AsyncImage(
                                     model =
                                     ImageRequest.Builder(LocalContext.current)
-                                        .data(item.poster)
+                                        .data(item.poster.split("V1_.jpg")[0] + "V1_QL75_UX380_CR0,0,380,562.jpg")
                                         .crossfade(true)
                                         .build(),
                                     contentDescription = "Title Poster",
@@ -1368,6 +1471,7 @@ fun SetSimilarTitles(
                                         )
                                         .clickable {
                                             player.stop()
+                                            killThreads = true
                                             prevPageHistory.add(
                                                 PrevNav(
                                                     prevID = clickedID,
@@ -1439,6 +1543,7 @@ fun SetSimilarTitles(
                             )
                             .clickable {
                                 player.stop()
+                                killThreads = true
                                 prevPageHistory.clear()
                                 nav.navigate("homePage")
                             },
@@ -1483,6 +1588,7 @@ fun SetSimilarTitles(
                             )
                             .clickable {
                                 player.stop()
+                                killThreads = true
                                 prevPageHistory.add(
                                     PrevNav(
                                         prevID = clickedID,
@@ -1493,7 +1599,8 @@ fun SetSimilarTitles(
                                         se = currentSE.value,
                                     )
                                 )
-                                nav.navigate("searchPanel") },
+                                nav.navigate("searchPanel")
+                            },
                         contentScale = ContentScale.Crop,
                         colorFilter =
                         ColorFilter.lighting(
@@ -1535,8 +1642,8 @@ fun SetSimilarTitles(
                             .padding(
                                 top = 8.dp,
                             )
-                            //.clickable { nav.navigate("searchPanel") },
-                        ,contentScale = ContentScale.Crop,
+                        //.clickable { nav.navigate("searchPanel") },
+                        , contentScale = ContentScale.Crop,
                         colorFilter =
                         ColorFilter.lighting(
                             add = Color(0xFFFFFFFF),
@@ -1566,6 +1673,7 @@ data class TmdbTitleMin(
     val title: String,
     var name: String,
     var media_type: String,
+    @com.google.gson.annotations.SerializedName("backdrop_path") val backdrop: String,
     @com.google.gson.annotations.SerializedName("poster_path") val poster: String,
 )
 

@@ -8,5 +8,4 @@ import com.example.vflix.R
 
 
 @RequiresApi(Build.VERSION_CODES.Q)
-val sans_ultra = FontFamily(Font(R.font.sans_ultra))
 val sans_bold = FontFamily(Font(R.font.sans_bold))

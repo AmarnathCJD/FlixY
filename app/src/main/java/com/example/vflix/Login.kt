@@ -52,6 +52,7 @@ import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.navigation.NavHostController
 
 @Composable
 fun BelowLoginScreen() {
@@ -73,7 +74,7 @@ var passwordVisibility by mutableStateOf(false)
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun LoginForm() {
+fun LoginForm(nav: NavHostController) {
     var email by remember { mutableStateOf("") }
     var password by remember { mutableStateOf("") }
 
@@ -167,6 +168,7 @@ fun LoginForm() {
 
                 Button(
                     onClick = {
+                        nav.navigate("homePage")
                         buttonColor.value =
                             if (buttonColor.value == Color.Black) Color.Red else Color.Black
                     },

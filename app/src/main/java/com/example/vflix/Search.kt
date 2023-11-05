@@ -36,10 +36,8 @@ import androidx.compose.material3.TextFieldDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.MutableState
-import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -58,7 +56,6 @@ import coil.compose.AsyncImage
 import coil.request.ImageRequest
 import com.example.vflix.ui.theme.sans_bold
 import com.google.gson.Gson
-import kotlinx.coroutines.Job
 import okhttp3.Call
 import okhttp3.Callback
 import okhttp3.OkHttpClient
@@ -68,7 +65,6 @@ import java.net.URLEncoder
 
 var searchValue = mutableStateOf("")
 val searchResult = mutableStateOf<List<TrendingTitle>>(emptyList())
-
 
 data class SearchTitle (
     val id: String,
