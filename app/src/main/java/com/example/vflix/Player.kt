@@ -11,6 +11,7 @@ import android.view.ViewGroup.LayoutParams.MATCH_PARENT
 import android.widget.FrameLayout
 import androidx.activity.compose.BackHandler
 import androidx.annotation.RequiresApi
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
@@ -45,12 +46,14 @@ import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Share
 import androidx.compose.material.icons.filled.ThumbUp
 import androidx.compose.material3.BottomAppBar
-import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Divider
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
+import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
@@ -65,6 +68,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.ColorFilter
 import androidx.compose.ui.layout.ContentScale
@@ -72,11 +76,14 @@ import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalLifecycleOwner
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.viewinterop.AndroidView
+import androidx.compose.ui.zIndex
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.LifecycleOwner
@@ -98,8 +105,15 @@ import com.example.vflix.auth.getLastSE
 import com.example.vflix.auth.getPlaybackTime
 import com.example.vflix.auth.hasWatched
 import com.example.vflix.auth.updateSeek
+import com.example.vflix.parser.TmdbData
+import com.example.vflix.parser.TmdbEpisode
+import com.example.vflix.parser.abbrivateCountryIfLong
 import com.example.vflix.parser.fetchAndExtractSources
 import com.example.vflix.parser.getBest
+import com.example.vflix.parser.getRemainingTime
+import com.example.vflix.parser.getTVRuntime
+import com.example.vflix.parser.getYear
+import com.example.vflix.parser.runtimeFormatter
 import com.example.vflix.ui.theme.sans_bold
 import com.google.gson.Gson
 import okhttp3.Call
@@ -111,10 +125,9 @@ import kotlin.random.Random
 
 val currentSE = mutableStateOf(Pair(1, 1))
 var killThreads = false
-var playbackStartPosition = 0L
+var playbackStartPosition = 10L
 var showReplayButton = mutableStateOf(false)
 var shouldPlay = mutableStateOf(true)
-
 
 data class PlayerError(
     var show: Boolean = false,
@@ -135,6 +148,7 @@ fun VideoScreen(
     val playerErr = remember { mutableStateOf(PlayerError()) }
     val imdbIdState = remember { mutableStateOf(clickedID) }
     val showSpinner = remember { mutableStateOf(true) }
+    val setupPlayer = remember { mutableStateOf(false) }
 
     val imdbTTState = remember {
         mutableStateOf(
@@ -151,9 +165,12 @@ fun VideoScreen(
                 listOf(),
                 listOf(),
                 listOf(),
+                ""
             )
         )
     }
+
+    val currentEpisodeData = remember { mutableStateOf(TmdbEpisode(0, "")) }
 
     val imdbTT = imdbTTState.value
     var contentType = imdbTT.type
@@ -162,6 +179,14 @@ fun VideoScreen(
 
     LaunchedEffect(Unit) {
         fetchIMDBTitle(imdbID = clickedID, imdbTTState, mediaType, imdbIdState)
+        if (mediaType == "tv") {
+            Thread {
+                fetchEpisodeData(
+                    currentEpisodeData,
+                    clickedID
+                )
+            }.start()
+        }
     }
 
     val player: ExoPlayer = remember {
@@ -255,7 +280,7 @@ fun VideoScreen(
                         )
                         Row {
                             Text(
-                                text = "Now Playing: ",
+                                text = "Playing: ",
                                 fontFamily = sans_bold,
                                 color = Color.White, fontSize = 14.sp,
                                 modifier = Modifier
@@ -267,7 +292,7 @@ fun VideoScreen(
                                     )
                             )
                             Text(
-                                text = "$clickedName ",
+                                text = "$clickedName",
                                 fontFamily = sans_bold,
                                 color = Color.White, fontSize = 14.sp,
                                 modifier = Modifier
@@ -311,13 +336,7 @@ fun VideoScreen(
                         .fillMaxSize(),
                     contentAlignment = Alignment.Center
                 ) {
-                    CircularProgressIndicator(
-                        modifier = Modifier
-                            .height(50.dp)
-                            .width(50.dp),
-                        color = Color.Red,
-                        strokeWidth = 6.dp
-                    )
+
                 }
             }
             if (playerErr.value.show) {
@@ -359,28 +378,492 @@ fun VideoScreen(
                 }.start()
             } else {
                 currentSE.value = getLastSE(clickedID)
-                playbackStartPosition = getPlaybackTime(clickedID, currentSE.value.first, currentSE.value.second)
+                playbackStartPosition =
+                    getPlaybackTime(clickedID, currentSE.value.first, currentSE.value.second)
             }
-            if (!contentType.isNullOrEmpty() && imdbIdState.value != "") {
-                if (hlsSource.value.sources.isEmpty()) {
-                    fetchSourceFromIMDBID(
-                        imdbIdState.value,
-                        hlsSource,
-                        contentType,
-                        currentSE.value.first,
-                        currentSE.value.second,
-                        playerErr,
-                        showSpinner
+            if (setupPlayer.value) {
+                if (!contentType.isNullOrEmpty() && imdbIdState.value != "") {
+                    if (hlsSource.value.sources.isEmpty()) {
+                        fetchSourceFromIMDBID(
+                            imdbIdState.value,
+                            hlsSource,
+                            contentType,
+                            currentSE.value.first,
+                            currentSE.value.second,
+                            playerErr,
+                            showSpinner
+                        )
+                    }
+                    if (hlsSource.value.getBest() != "") {
+                        showSpinner.value = false
+                        VideoPlayer(player, hlsSource.value.getBest(), isF, context)
+                    }
+                }
+            } else {
+                showSpinner.value = false
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(260.dp)
+                        .padding(horizontal = 10.dp, vertical = 2.dp)
+                        .padding(
+                            top = 10.dp
+                        ),
+                    horizontalArrangement = Arrangement.Center
+                ) {
+                    val showShimmer = remember { mutableStateOf(true) }
+                    val cfg = LocalConfiguration.current
+                    Box(
+                        modifier = Modifier, contentAlignment = Alignment.Center
+                    ) {
+                        Row(
+                            modifier = Modifier
+                                .zIndex(6f)
+                                .padding(
+                                    start = cfg.screenWidthDp.dp / 2 - 85.dp,
+                                    end = 0.dp
+                                )
+                                .width(
+                                    280.dp
+                                ),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.SpaceBetween
+                        ) {
+                            Image(
+                                painter = painterResource(id = R.drawable.icons8_circled_play_100),
+                                contentDescription = null,
+                                modifier = Modifier
+                                    .height(128.dp)
+                                    .padding(horizontal = 12.dp)
+                                    .shadow(
+                                        elevation = 2.dp,
+                                        shape = RoundedCornerShape(12.dp),
+                                        spotColor = Color.Transparent,
+                                        ambientColor = Color.Transparent,
+                                        clip = true
+                                    )
+                                    .clickable(
+                                        onClick = {
+                                            setupPlayer.value = true
+                                        },
+                                        onClickLabel = "Play Button",
+                                        role = Role.Button
+                                    ),
+                                contentScale = ContentScale.Crop,
+                                colorFilter =
+                                ColorFilter.lighting(
+                                    add = Color(0xFFE4DEDE),
+                                    multiply = Color.Red
+                                )
+                            )
+                        }
+                        AsyncImage(
+                            model =
+                            ImageRequest.Builder(LocalContext.current)
+                                .data(imdbTT.horizontalPoster)
+                                .crossfade(true)
+                                .build(),
+                            contentDescription = "Movie Poster",
+                            contentScale = ContentScale.Crop,
+                            modifier = Modifier
+                                .clip(RoundedCornerShape(5.dp))
+                                .background(
+                                    shimmerBrush(
+                                        targetValue = 1300f,
+                                        showShimmer = showShimmer.value
+                                    )
+                                )
+                                .background(
+                                    Color(0xFF1F1F1F)
+                                )
+                                .height(210.dp)
+                                .fillMaxWidth(0.99f)
+                                .shadow(
+                                    elevation = 2.dp,
+                                    shape = RoundedCornerShape(0.dp),
+                                    spotColor = Color.Transparent,
+                                    ambientColor = Color.Transparent,
+                                    clip = true
+                                ),
+                            onSuccess = {
+                                showShimmer.value = false
+                            }
+                        )
+                    }
+                }
+            }
+        }
+
+        Row (
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(50.dp)
+                .padding(horizontal = 10.dp)
+                .padding(
+                    bottom = 16.dp
+                ),
+            horizontalArrangement = Arrangement.Center,
+            verticalAlignment = Alignment.Top,
+        ) {
+            Text(
+                text = clickedName,
+                fontFamily = sans_bold,
+                color = Color(0xFFE5E1F0),
+                fontSize = 25.sp,
+                modifier = Modifier
+                    .height(50.dp)
+                    .padding(vertical = 0.dp)
+                    .basicMarquee(),
+                textDecoration = TextDecoration.Underline,
+            )
+        }
+
+        if (playbackStartPosition != 0L) {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 10.dp)
+                    .height(40.dp),
+                horizontalArrangement = Arrangement.Center,
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Button(
+                    onClick = { /*TODO*/ },
+                    modifier = Modifier
+                        .background(
+                            Color.Transparent
+                        )
+                        .fillMaxWidth()
+                        .clip(
+                            RoundedCornerShape(
+                                0.dp
+                            )
+                        )
+                        .height(
+                            40.dp
+                        )
+                        .padding(
+                            horizontal = 10.dp
+                        )
+                        .shadow(
+                            elevation = 10.dp,
+                            shape = RoundedCornerShape(0.dp),
+                            ambientColor = Color.White,
+                            clip = true,
+                            spotColor = Color.White
+                        ),
+                    shape = RoundedCornerShape(4.dp),
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = Color.White,
+                        contentColor = Color.Black
+                    ),
+                    border = BorderStroke(
+                        width = 1.dp,
+                        color = Color.White
+                    ),
+                ) {
+                    Image(
+                        imageVector = Icons.Filled.PlayArrow,
+                        contentDescription = null,
+                        modifier = Modifier.padding(
+                            top = 0.dp,
+                            bottom = 1.dp
+                        ),
+                        colorFilter =
+                        ColorFilter.tint(
+                            Color.Black
+                        )
+                    )
+                    Text(
+                        text = "Resume",
+                        fontFamily = sans_bold,
+                        color = Color.Black,
+                        fontSize = 14.sp,
                     )
                 }
-                if (hlsSource.value.getBest() != "") {
-                    showSpinner.value = false
-                    VideoPlayer(player, hlsSource.value.getBest(), isF, context)
+            }
+            Spacer(modifier = Modifier.height(6.dp))
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 10.dp)
+                    .height(40.dp),
+                horizontalArrangement = Arrangement.Center,
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Button(
+                    onClick = { /*TODO*/ },
+                    modifier = Modifier
+                        .background(
+                            Color.Transparent
+                        )
+                        .fillMaxWidth()
+                        .clip(
+                            RoundedCornerShape(
+                                0.dp
+                            )
+                        )
+                        .height(
+                            40.dp
+                        )
+                        .padding(
+                            horizontal = 10.dp
+                        )
+                        .shadow(
+                            elevation = 12.dp,
+                            shape = RoundedCornerShape(0.dp),
+                            ambientColor = Color.White,
+                            clip = true,
+                            spotColor = Color.White
+                        ),
+                    shape = RoundedCornerShape(4.dp),
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = Color(0xFF383636),
+                        contentColor = Color.White
+                    ),
+                    border = BorderStroke(
+                        width = 1.dp,
+                        color = Color.Transparent
+                    ),
+                ) {
+                    Image(
+                        painterResource(id = R.drawable.downloads),
+                        contentDescription = null,
+                        modifier = Modifier
+                            .padding(
+                                top = 0.dp,
+                                bottom = 0.dp
+                            )
+                            .width(14.dp),
+                        colorFilter =
+                        ColorFilter.tint(
+                            Color.White
+                        )
+                    )
+                    Spacer(modifier = Modifier.width(4.dp))
+                    Text(
+                        text = if (contentType.lowercase().contains("tv")) {
+                            "Download S${currentSE.value.first}:E${currentSE.value.second}"
+                        } else {
+                            "Download"
+                        },
+                        fontFamily = sans_bold,
+                        color = Color.White,
+                        fontSize = 14.sp,
+                        fontWeight = FontWeight.Medium
+                    )
+                }
+            }
+            Spacer(modifier = Modifier.height(6.dp))
+        } else {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 10.dp)
+                    .height(40.dp),
+                horizontalArrangement = Arrangement.Center,
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Button(
+                    onClick = { /*TODO*/ },
+                    modifier = Modifier
+                        .background(
+                            Color.Transparent
+                        )
+                        .fillMaxWidth()
+                        .clip(
+                            RoundedCornerShape(
+                                0.dp
+                            )
+                        )
+                        .height(
+                            40.dp
+                        )
+                        .padding(
+                            horizontal = 10.dp
+                        )
+                        .shadow(
+                            elevation = 10.dp,
+                            shape = RoundedCornerShape(0.dp),
+                            ambientColor = Color.White,
+                            clip = true,
+                            spotColor = Color.White
+                        ),
+                    shape = RoundedCornerShape(4.dp),
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = Color.White,
+                        contentColor = Color.Black
+                    ),
+                    border = BorderStroke(
+                        width = 1.dp,
+                        color = Color.White
+                    ),
+                ) {
+                    Image(
+                        imageVector = Icons.Filled.PlayArrow,
+                        contentDescription = null,
+                        modifier = Modifier.padding(
+                            top = 0.dp,
+                            bottom = 1.dp
+                        ),
+                        colorFilter =
+                        ColorFilter.tint(
+                            Color.Black
+                        )
+                    )
+                    Text(
+                        text = "Play",
+                        fontFamily = sans_bold,
+                        color = Color.Black,
+                        fontSize = 14.sp,
+                    )
+                }
+            }
+            Spacer(modifier = Modifier.height(6.dp))
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 10.dp)
+                    .height(40.dp),
+                horizontalArrangement = Arrangement.Center,
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Button(
+                    onClick = { /*TODO*/ },
+                    modifier = Modifier
+                        .background(
+                            Color.Transparent
+                        )
+                        .fillMaxWidth()
+                        .clip(
+                            RoundedCornerShape(
+                                0.dp
+                            )
+                        )
+                        .height(
+                            40.dp
+                        )
+                        .padding(
+                            horizontal = 10.dp
+                        )
+                        .shadow(
+                            elevation = 12.dp,
+                            shape = RoundedCornerShape(0.dp),
+                            ambientColor = Color.White,
+                            clip = true,
+                            spotColor = Color.White
+                        ),
+                    shape = RoundedCornerShape(4.dp),
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = Color(0xFF383636),
+                        contentColor = Color.White
+                    ),
+                    border = BorderStroke(
+                        width = 1.dp,
+                        color = Color.Transparent
+                    ),
+                ) {
+                    Image(
+                        painterResource(id = R.drawable.downloads),
+                        contentDescription = null,
+                        modifier = Modifier
+                            .padding(
+                                top = 0.dp,
+                                bottom = 0.dp
+                            )
+                            .width(14.dp),
+                        colorFilter =
+                        ColorFilter.tint(
+                            Color.White
+                        )
+                    )
+                    Spacer(modifier = Modifier.width(4.dp))
+                    Text(
+                        text = if (contentType.lowercase().contains("tv")) {
+                            "Download S${currentSE.value.first}:E${currentSE.value.second}"
+                        } else {
+                            "Download"
+                        },
+                        fontFamily = sans_bold,
+                        color = Color.White,
+                        fontSize = 14.sp,
+                        fontWeight = FontWeight.Medium
+                    )
+                }
+            }
+            Spacer(modifier = Modifier.height(6.dp))
+        }
+
+        if (playbackStartPosition != 0L) {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 10.dp)
+                    .height(28.dp),
+                horizontalArrangement = Arrangement.Center,
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                if (imdbTT.runtime.runtime != "") {
+                    Text(
+                        text = "${
+                            getRemainingTime(
+                                currentEpisodeData.value.runtime,
+                                playbackStartPosition.toInt()
+                            )
+                        } remaining",
+                        fontFamily = sans_bold,
+                        color = Color(0xFF8B8585),
+                        fontSize = 11.sp,
+                    )
                 }
             }
 
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(4.dp)
+                    .padding(horizontal = 22.dp)
+                    .padding(
+                        top = 2.dp,
+                        bottom = 10.dp
+                    ),
+                contentAlignment = Alignment.CenterStart
+            ) {
+                fun calcProgress(runtime: Int, currPos: Long): Float {
+                    return (currPos.toFloat() / runtime.toFloat())
+                }
+
+                if (imdbTT.runtime.runtime != "") {
+                    LinearProgressIndicator(
+                        progress = calcProgress(
+                            currentEpisodeData.value.runtime,
+                            playbackStartPosition
+                        ),
+                        modifier = Modifier.fillMaxWidth(),
+                        color = Color(0xFFE50914),
+                    )
+                }
+            }
         }
-        if (!contentType.isNullOrEmpty() && contentType.contains("TV")) {
+        if (contentType.lowercase().contains("tv") && currentEpisodeData.value.overview != "") {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 20.dp)
+                    .height(40.dp),
+                horizontalArrangement = Arrangement.Center,
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Text(
+                    text = currentEpisodeData.value.overview,
+                    fontFamily = sans_bold,
+                    color = Color(0xFF7E7A7A),
+                    fontSize = 10.sp,
+                )
+            }
+            Spacer(modifier = Modifier.height(6.dp))
+        }
+        if (!contentType.isNullOrEmpty() && contentType.contains("Null")) {
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -417,9 +900,9 @@ fun VideoScreen(
             }
         }
         if (!isF.value && !hlsSource.value.tmdbID.isNullOrEmpty()) {
-            if (contentType.contains("TV")) {
+            if (contentType.contains("tv") || contentType.contains("TV")) {
                 SeasonAndEpisodeSelector(
-                    hlsSource.value.tmdbID,
+                    imdbTT.id,
                     currentSE,
                     hlsSource,
                     playerErr,
@@ -460,13 +943,11 @@ fun VideoPlayer(
     player.addListener(
         object : Player.Listener {
             override fun onPlayerError(error: PlaybackException) {
-                println("Player error: $error")
                 player.stop()
             }
         }
     )
 
-    // on playback ended, add a button on bottom right over the player to replay
     player.addListener(
         object : Player.Listener {
             override fun onPlaybackStateChanged(state: Int) {
@@ -512,15 +993,16 @@ fun VideoPlayer(
             .setPreferredAudioLanguage("hu")
             .build()
 
-    // on activity pause, pause the player
     ComposableLifecycle { _, event ->
         when (event) {
             Lifecycle.Event.ON_RESUME -> {
                 player.play()
             }
+
             Lifecycle.Event.ON_PAUSE -> {
                 player.pause()
             }
+
             else -> {}
         }
     }
@@ -537,8 +1019,6 @@ fun VideoPlayer(
                 if (!shouldPlay.value) {
                     player.stop()
                 }
-
-                // add a button on bottom right over the player to replay
 
                 setControllerOnFullScreenModeChangedListener { isFullScreen ->
                     with(context) {
@@ -560,6 +1040,7 @@ fun VideoPlayer(
             .background(Color.Black)
     )
 }
+
 @Composable
 fun ComposableLifecycle(
     lifecycleOwner: LifecycleOwner = LocalLifecycleOwner.current,
@@ -577,12 +1058,6 @@ fun ComposableLifecycle(
         }
     }
 }
-
-
-data class MediaSrc(
-    @com.google.gson.annotations.SerializedName("quality") val quality: String,
-    @com.google.gson.annotations.SerializedName("url") val url: String
-)
 
 var isActive = mutableStateOf(false)
 
@@ -649,7 +1124,7 @@ fun MediaMetadata(imdbTTState: MutableState<ImdbTitle>) {
             AsyncImage(
                 model =
                 ImageRequest.Builder(LocalContext.current)
-                    .data(imdbTT.poster.url.split("V1_.jpg")[0] + "QL75_UX380_CR0,0,380,562.jpg")
+                    .data(imdbTT.poster.url)
                     .crossfade(true)
                     .build(),
                 contentDescription = "Movie Poster",
@@ -940,10 +1415,16 @@ data class ImdbTitle(
     var stars: List<Star>,
     @com.google.gson.annotations.SerializedName("countries_of_origin") var countriesOfOrigin: List<String>,
     @com.google.gson.annotations.SerializedName("more_like_this") var similarTitles: List<SimilarTitle>,
+    val horizontalPoster: String
 )
 
-data class TmdbResp(
-    @com.google.gson.annotations.SerializedName("imdb_id") val imdbID: String,
+data class TmdbFindSub(
+    @com.google.gson.annotations.SerializedName("id") val id: String,
+)
+
+data class TmdbFind(
+    @com.google.gson.annotations.SerializedName("movie_results") val movieResults: List<TmdbFindSub>,
+    @com.google.gson.annotations.SerializedName("tv_results") val tvResults: List<TmdbFindSub>,
 )
 
 fun fetchIMDBTitle(
@@ -952,9 +1433,9 @@ fun fetchIMDBTitle(
     mediaType: String = "movie",
     imdbIdState: MutableState<String>
 ) {
-    if (!imdbID.contains("tt")) {
+    if (imdbID.contains("tt")) {
         val url =
-            "https://api.themoviedb.org/3/$mediaType/$imdbID/external_ids?api_key=d56e51fb77b081a9cb5192eaaa7823ad"
+            "https://api.themoviedb.org/3/find/$imdbID?&external_source=imdb_id&api_key=d56e51fb77b081a9cb5192eaaa7823ad"
         val client = OkHttpClient()
         val request = okhttp3.Request.Builder()
             .url(url)
@@ -965,28 +1446,28 @@ fun fetchIMDBTitle(
             .enqueue(
                 object : Callback {
                     override fun onFailure(call: Call, e: IOException) {
-                        println("Error, ${e.message}")
                         e.printStackTrace()
                     }
 
                     override fun onResponse(call: Call, response: Response) {
-                        val json = response.body?.string()
-                        val title = Gson().fromJson(json, TmdbResp::class.java)
-                        imdbIdState.value = title.imdbID
-                        var mediaTypeParam = "movie"
-                        if (!mediaType.isNullOrEmpty()) {
-                            mediaTypeParam = mediaType
+                        val jsonResponse = response.body?.string()
+                        val tmdbFind = Gson().fromJson(jsonResponse, TmdbFind::class.java)
+                        var mediaTypeModifier = "movie"
+                        if (tmdbFind.movieResults.isNotEmpty()) {
+                            imdbIdState.value = tmdbFind.movieResults[0].id
+                        } else if (tmdbFind.tvResults.isNotEmpty()) {
+                            imdbIdState.value = tmdbFind.tvResults[0].id
+                            mediaTypeModifier = "tv"
                         }
-                        println("XPARAMS: $mediaTypeParam, $imdbID, $imdbIdState, $imdbTT, $mediaType, ${title.imdbID}")
-                        fetchIMDBTitle(title.imdbID, imdbTT, mediaTypeParam, imdbIdState)
+
+                        fetchIMDBTitle(imdbIdState.value, imdbTT, mediaTypeModifier, imdbIdState)
                     }
                 }
             )
     }
-    val url = "https://a.ztorr.me/api/imdb?id=$imdbID"
     val client = OkHttpClient()
     val request = okhttp3.Request.Builder()
-        .url(url)
+        .url("https://api.themoviedb.org/3/${mediaType.lowercase()}/$imdbID?api_key=d56e51fb77b081a9cb5192eaaa7823ad&append_to_response=credits")
         .build()
 
     client
@@ -994,23 +1475,126 @@ fun fetchIMDBTitle(
         .enqueue(
             object : Callback {
                 override fun onFailure(call: Call, e: IOException) {
-                    println("Error, ${e.message}")
                     e.printStackTrace()
                 }
 
                 override fun onResponse(call: Call, response: Response) {
                     val json = response.body?.string()
                     if (json != null) {
-                        if (json.contains("imdb_id is")) {
-                            return
+                        val rawData = Gson().fromJson(json, TmdbData::class.java)
+                        if (mediaType == "movie") {
+                            imdbTT.value = ImdbTitle(
+                                rawData.id.toString(),
+                                rawData.title,
+                                mediaType,
+                                Year(rawData.releaseDate, ""),
+                                Runtime(runtimeFormatter(rawData.runtime)),
+                                Rating(rawData.voteAverage.toFloat()),
+                                Poster(
+                                    "https://image.tmdb.org/t/p/w342/${rawData.posterPath}",
+                                    500,
+                                    750
+                                ),
+                                rawData.genres.map { it.name },
+                                rawData.overview,
+                                rawData.credits.cast.map { Star(it.name) },
+                                rawData.productionCountries.map { abbrivateCountryIfLong(it.name) },
+                                listOf(),
+                                "https://image.tmdb.org/t/p/w780/${rawData.backdropPath}"
+                            )
+                        } else {
+                            if (rawData.lastAirDate == null) {
+                                rawData.lastAirDate = ""
+                            }
+                            if (rawData.firstAirDate == null) {
+                                return
+                            }
+                            imdbTT.value = ImdbTitle(
+                                rawData.id.toString(),
+                                rawData.name,
+                                mediaType,
+                                Year(getYear(rawData.firstAirDate), getYear(rawData.lastAirDate)),
+                                Runtime(getTVRuntime(rawData)),
+                                Rating(rawData.voteAverage.toFloat()),
+                                Poster(
+                                    "https://image.tmdb.org/t/p/w342/${rawData.posterPath}",
+                                    500,
+                                    750
+                                ),
+                                rawData.genres.map { it.name },
+                                rawData.overview,
+                                rawData.credits.cast.map { Star(it.name) },
+                                rawData.productionCountries.map { abbrivateCountryIfLong(it.name) },
+                                listOf(),
+                                "https://image.tmdb.org/t/p/w780/${rawData.backdropPath}"
+                            )
                         }
                     }
-                    val title = Gson().fromJson(json, ImdbTitle::class.java)
-                    imdbTT.value = title
                 }
             }
         )
 }
+
+fun fetchEpisodeData(epData: MutableState<TmdbEpisode>, imdbID: String) {
+    if (imdbID.contains("tt")) {
+        val url =
+            "https://api.themoviedb.org/3/find/$imdbID?&external_source=imdb_id&api_key=d56e51fb77b081a9cb5192eaaa7823ad"
+        val client = OkHttpClient()
+        val request = okhttp3.Request.Builder()
+            .url(url)
+            .build()
+
+        client
+            .newCall(request)
+            .enqueue(
+                object : Callback {
+                    override fun onFailure(call: Call, e: IOException) {
+                        e.printStackTrace()
+                    }
+
+                    override fun onResponse(call: Call, response: Response) {
+                        val jsonResponse = response.body?.string()
+                        val tmdbFind = Gson().fromJson(jsonResponse, TmdbFind::class.java)
+                        if (tmdbFind.movieResults.isNotEmpty()) {
+                            fetchEpisodeData(epData, tmdbFind.movieResults[0].id)
+                        } else if (tmdbFind.tvResults.isNotEmpty()) {
+                            fetchEpisodeData(
+                                epData,
+                                tmdbFind.tvResults[0].id
+                            )
+                        }
+                    }
+                }
+            )
+    }
+    val client = OkHttpClient()
+    val x = "https://api.themoviedb.org/3/tv/$imdbID/season/${currentSE.value.first}/episode/${currentSE.value.second}?api_key=d56e51fb77b081a9cb5192eaaa7823ad"
+    val request = okhttp3.Request.Builder()
+        .url(x)
+        .build()
+
+    println("EPDURL: $x")
+
+    client
+        .newCall(request)
+        .enqueue(
+            object : Callback {
+                override fun onFailure(call: Call, e: IOException) {
+                    e.printStackTrace()
+                }
+
+                override fun onResponse(call: Call, response: Response) {
+                    val json = response.body?.string()
+                    println("EPD: $json")
+                    if (json != null) {
+                        val rawData = Gson().fromJson(json, TmdbEpisode::class.java)
+                        epData.value = rawData
+                    }
+                }
+            }
+        )
+}
+
 
 
 @RequiresApi(Build.VERSION_CODES.Q)

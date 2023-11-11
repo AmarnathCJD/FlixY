@@ -42,7 +42,6 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.AccountCircle
 import androidx.compose.material.icons.filled.Add
-import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Search
@@ -174,7 +173,7 @@ fun HomePage(navController: NavHostController) {
         bottomBar = { BottomBar(navController = navController) },
         topBar = { TopBar(navController = navController) },
     ) { innerPadding ->
-        println("Content padding: $innerPadding")
+        //println("Content padding: $innerPadding")
         var configuration = LocalConfiguration.current
 
         LaunchedEffect(Unit) {
@@ -187,7 +186,7 @@ fun HomePage(navController: NavHostController) {
 
 
         val pagerState = rememberPagerState(initialPage = 0, initialPageOffsetFraction = 0.0f,
-        pageCount = { 15 })
+            )
         val fling =
             PagerDefaults.flingBehavior(
                 state = pagerState,
@@ -233,11 +232,10 @@ fun HomePage(navController: NavHostController) {
                     .fillMaxSize()
                     .verticalScroll(rememberScrollState()),
             ) {
-
-
                 Spacer(modifier = Modifier.height(6.dp))
                 Row {
                     HorizontalPager(
+                        pageCount = 15,
                         state = pagerState,
                         flingBehavior = fling,
                         beyondBoundsPageCount = 2,
@@ -403,7 +401,7 @@ fun HomePage(navController: NavHostController) {
                                                     clip = true,
                                                     spotColor = Color.White
                                                 )
-                                            .graphicsLayer {  },
+                                                .graphicsLayer { },
                                             shape = RoundedCornerShape(4.dp),
                                             colors = ButtonDefaults.buttonColors(
                                                 containerColor = Color.Black.copy(alpha = 0.5f),
@@ -521,10 +519,12 @@ fun HomePage(navController: NavHostController) {
                     horizontalArrangement = Arrangement.SpaceBetween
                 ) {
                     TrendingBar(titles.value, navController)
+                    // TODO: nested LazyRow and LazyColumn
                 }
                 Spacer(modifier = Modifier.height(12.dp))
             }
         }
+
     }
 }
 
@@ -790,9 +790,13 @@ fun TrendingBar(
             }
             ContinueWatchingBar(nav = navController)
             if (!data.value.isNullOrEmpty() && !data.value[0].results.isNullOrEmpty()) {
-                for (genre in data.value) {
-                    TitleGenreBar(genre.genre, navController, genre.results)
-                }
+                //LazyColumn() {
+                    for (genre in data.value) {
+                        if (!genre.genre.isNullOrEmpty() && !genre.results.isNullOrEmpty())
+                        TitleGenreBar(genre.genre, navController, genre.results)
+                    }
+            } else {
+                println("EMPTY GENRE")
             }
         }
     }
@@ -944,7 +948,7 @@ fun TitleGenreBar(
                                 model =
                                 ImageRequest.Builder(LocalContext.current)
                                     .data(
-                                        item.poster.split(".jpg")[0] + "QL75_UX380_CR0,0,380,562.jpg"
+                                        (item.poster.split(".jpg")[0] + "QL75_UX380_CR0,0,380,562.jpg")
                                             ?: ""
                                     )
                                     .crossfade(true)
@@ -992,7 +996,7 @@ fun fetchGenres(genres: Array<String>, data: MutableState<List<Genre>>): Int {
     val client = OkHttpClient()
     val request =
         Request.Builder()
-            .url("https://a.ztorr.me/api/imdb?genres=${genres.joinToString(",")}&limit=20").build()
+            .url("https://a.ztorr.me/api/imdb?genres=Action,Adventure,Comedy&limit=20").build()
     client
         .newCall(request)
         .enqueue(
@@ -1140,13 +1144,15 @@ fun BottomBar(navController: NavHostController) {
                             .background(Color(0xFF161615)),
                     ) {
                         Image(
-                            imageVector = Icons.Filled.Edit,
+                            painter = painterResource(R.drawable.downloads),
                             contentDescription = null,
                             modifier = Modifier
                                 .padding(horizontal = 8.dp)
                                 .padding(
-                                    top = 1.dp,
+                                    top = 3.dp + 1.dp.times(0.6f)
                                 )
+                                .width(22.dp)
+                                .height(21.dp)
                             //.clickable { navController.navigate("searchPanel") },
                             , contentScale = ContentScale.Crop,
                             colorFilter =
@@ -1168,6 +1174,56 @@ fun BottomBar(navController: NavHostController) {
                         )
                     }
 
+                }
+
+                Row(
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    modifier = Modifier
+                        .padding(
+                            vertical = 1.dp,
+                        )
+                ) {
+                    Column(
+                        verticalArrangement = Arrangement.Center,
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        modifier = Modifier
+
+                            .background(Color(0xFF161615)),
+                    ) {
+                        Image(
+                            painter = painterResource(R.drawable.tv),
+                            contentDescription = null,
+                            modifier = Modifier
+                                //
+                                .padding(horizontal = 8.dp)
+                                .padding(
+                                    top = 1.dp,
+                                )
+                                .width(24.dp)
+                                .height(24.dp)
+                                .clickable {
+                                    IsLiveTVHome.value = true
+                                    navController.navigate("liveTV")
+                                },
+                            contentScale = ContentScale.Crop,
+                            colorFilter =
+                            ColorFilter.lighting(
+                                add = Color(0xFFFFFFFF),
+                                multiply = Color.White
+                            )
+                        )
+                        Text(
+                            text = "Live TV",
+                            fontSize = 8.sp,
+                            fontFamily = sans_bold,
+                            color = Color.White,
+                            modifier = Modifier
+                                .padding(horizontal = 8.dp)
+                                .padding(
+                                    bottom = 1.dp,
+                                )
+                        )
+                    }
                 }
 
                 Row(

@@ -1,5 +1,7 @@
 package com.example.vflix
 
+import android.os.Build
+import androidx.annotation.RequiresApi
 import androidx.compose.animation.core.RepeatMode
 import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.core.infiniteRepeatable
@@ -9,7 +11,6 @@ import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -28,7 +29,6 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material.icons.filled.Search
-import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
@@ -54,6 +54,8 @@ import androidx.compose.ui.unit.sp
 import androidx.navigation.NavHostController
 import coil.compose.AsyncImage
 import coil.request.ImageRequest
+import com.example.vflix.parser.Channel
+import com.example.vflix.parser.SearchChannel
 import com.example.vflix.ui.theme.sans_bold
 import com.google.gson.Gson
 import okhttp3.Call
@@ -66,13 +68,13 @@ import java.net.URLEncoder
 var searchValue = mutableStateOf("")
 val searchResult = mutableStateOf<List<TrendingTitle>>(emptyList())
 
-data class SearchTitle (
+data class SearchTitle(
     val id: String,
     val title: String,
     @com.google.gson.annotations.SerializedName("poster_url") val poster: String?,
 )
 
-data class TrendingTitle (
+data class TrendingTitle(
     val id: String,
     val title: String?,
     @com.google.gson.annotations.SerializedName("original_name") val name: String?,
@@ -81,10 +83,11 @@ data class TrendingTitle (
     @com.google.gson.annotations.SerializedName("media_type") val mediaType: String?,
 )
 
-data class TopResult (
-    val results : List<TrendingTitle>
+data class TopResult(
+    val results: List<TrendingTitle>
 )
 
+@RequiresApi(Build.VERSION_CODES.Q)
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun SearchPanel(nav: NavHostController) {
@@ -93,6 +96,7 @@ fun SearchPanel(nav: NavHostController) {
     val romanceState = remember { mutableStateOf<List<SearchTitle>>(emptyList()) }
     val horrorState = remember { mutableStateOf<List<SearchTitle>>(emptyList()) }
     val familyState = remember { mutableStateOf<List<SearchTitle>>(emptyList()) }
+    val channelState = remember { mutableStateOf<List<Channel>>(emptyList()) }
     val showProgress = remember { mutableStateOf(true) }
     val showNoResult = remember { mutableStateOf(false) }
     val displayTrending = remember { mutableStateOf(true) }
@@ -143,6 +147,7 @@ fun SearchPanel(nav: NavHostController) {
                     if (searchValue.value.length % 2 == 0 && !searchValue.value.isNullOrEmpty()) {
                         displayTrending.value = false
                         showProgress.value = true
+                        SearchChannel(searchValue.value, channelState)
                         fetchResult(searchResult, showProgress, searchValue.value, showNoResult)
                     }
                 },
@@ -200,21 +205,6 @@ fun SearchPanel(nav: NavHostController) {
                     .clip(RoundedCornerShape(12.dp)),
 
                 ) {
-                if (showProgress.value) {
-                    Box(
-                        modifier = Modifier
-                            .fillMaxSize(),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        CircularProgressIndicator(
-                            modifier = Modifier
-                                .height(50.dp)
-                                .width(50.dp),
-                            color = Color.Red,
-                            strokeWidth = 6.dp
-                        )
-                    }
-                }
 
                 val lazyListState = rememberLazyListState()
 
@@ -311,38 +301,41 @@ fun SearchPanel(nav: NavHostController) {
                 }
             }
         } else {
-            Column (
+            Column(
                 modifier = Modifier.verticalScroll(rememberScrollState())
             ) {
-                Row(
-                    modifier = Modifier.padding(top = 12.dp)
-                ) {
-                    Text(
-                        text = "Top Results",
-                        modifier = Modifier
-                            .padding(
-                                vertical = 2.dp,
-                                horizontal = 12.dp
+                if (!showNoResult.value) {
+                    Row(
+                        modifier = Modifier.padding(top = 12.dp)
+                    ) {
+                        Text(
+                            text = "Top Results",
+                            modifier = Modifier
+                                .padding(
+                                    vertical = 2.dp,
+                                    horizontal = 12.dp
+                                )
+                                .fillMaxWidth(),
+                            style = TextStyle(
+                                fontSize = 18.sp,
+                                color = Color.White,
+                                fontFamily = sans_bold
                             )
-                            .fillMaxWidth(),
-                        style = TextStyle(
-                            fontSize = 18.sp,
-                            color = Color.White,
-                            fontFamily = sans_bold
                         )
-                    )
+                    }
                 }
                 if (showNoResult.value) {
-                    Row (
-                        modifier = Modifier.padding(top = 12.dp)
+                    Row(
+                        modifier = Modifier
+                            .padding(top = 12.dp)
                             .fillMaxWidth(),
                         horizontalArrangement = Arrangement.Center
-                    ){
+                    ) {
                         Text(
                             text = "No Results",
                             modifier = Modifier
                                 .padding(
-                                    vertical = 6.dp,
+                                    vertical = 10.dp,
                                     horizontal = 12.dp
                                 )
                                 .fillMaxWidth(),
@@ -355,7 +348,9 @@ fun SearchPanel(nav: NavHostController) {
                         )
                     }
                 }
-                Row() {
+
+
+                Row {
                     val lazyListState = rememberLazyListState()
 
                     var pageSize = search.size / 3
@@ -387,8 +382,7 @@ fun SearchPanel(nav: NavHostController) {
                                             .padding(2.dp)
                                     ) {
                                         val showShimmer = remember { mutableStateOf(true) }
-                                        Row(
-                                        ) {
+                                        Row {
                                             AsyncImage(
                                                 model =
                                                 ImageRequest.Builder(LocalContext.current)
@@ -442,11 +436,141 @@ fun SearchPanel(nav: NavHostController) {
                     }
                 }
 
+                if (!channelState.value.isNullOrEmpty()) {
+                    Row(
+                        modifier = Modifier.padding(top = 12.dp)
+                    ) {
+                        Text(
+                            text = "Live TV",
+                            modifier = Modifier
+                                .padding(
+                                    vertical = 2.dp,
+                                    horizontal = 12.dp
+                                )
+                                .fillMaxWidth(),
+                            style = TextStyle(
+                                fontSize = 18.sp,
+                                color = Color.White,
+                                fontFamily = sans_bold
+                            )
+                        )
+                    }
+                    Row {
+                        val lazyListState = rememberLazyListState()
+
+                        var pageSize = channelState.value.size / 3
+                        if (pageSize == 0) {
+                            pageSize = 1
+                        }
+                        LazyRow(
+                            modifier =
+                            Modifier
+                                .padding(
+                                    vertical = 2.dp,
+                                    horizontal = 12.dp
+                                )
+                                .clip(RoundedCornerShape(12.dp))
+                                .fillMaxWidth(),
+                            state = lazyListState,
+                        ) {
+                            itemsIndexed(channelState.value) { index, item ->
+                                val pageIndex = index / pageSize
+                                val pageStartIndex = pageIndex * pageSize
+                                val pageEndIndex = (pageIndex + 1) * pageSize - 1
+
+                                if (index in pageStartIndex..pageEndIndex) {
+                                    if ((item.image?.length ?: 0) > 0) {
+                                        Row(
+                                            horizontalArrangement = Arrangement.SpaceEvenly,
+                                            modifier = Modifier
+                                                .fillMaxWidth()
+                                                .padding(2.dp)
+                                        ) {
+                                            val showShimmer = remember { mutableStateOf(true) }
+                                            Row {
+                                                AsyncImage(
+                                                    model =
+                                                    ImageRequest.Builder(LocalContext.current)
+                                                        .data(item.image)
+                                                        .crossfade(true)
+                                                        .build(),
+                                                    contentDescription = "Movie Poster",
+                                                    contentScale = ContentScale.Crop,
+                                                    modifier = Modifier
+                                                        .height(130.dp)
+                                                        .width(130.dp)
+                                                        .clip(
+                                                            RoundedCornerShape(
+                                                                5.dp
+                                                            )
+                                                        )
+                                                        .background(
+                                                            shimmerBrush(
+                                                                targetValue = 1300f,
+                                                                showShimmer = showShimmer.value
+                                                            )
+                                                        )
+                                                        .clickable {
+                                                            clickedName = item.name
+                                                            clickedID = item.id
+                                                            mediaType = item.image ?: "live"
+                                                            IsLiveTVHome.value = false
+                                                            prevPageHistory.add(
+                                                                PrevNav(
+                                                                    prevPage = "searchPanel",
+                                                                    prevName = clickedName,
+                                                                    prevID = clickedID,
+                                                                    prevMediaType = mediaType,
+                                                                    prevSearch = searchValue.value,
+                                                                )
+                                                            )
+                                                            nav.navigate("liveTV")
+                                                        },
+                                                    onSuccess = { showShimmer.value = false },
+                                                )
+                                            }
+                                        }
+                                        Spacer(
+                                            modifier = Modifier.width(
+                                                4.dp
+                                            )
+                                        )
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+
                 LaunchedEffect(Unit) {
-                    searchTitle(actionState, showProgress, searchValue.value, showNoResult, "Action")
-                    searchTitle(romanceState, showProgress, searchValue.value, showNoResult, "Romance")
-                    searchTitle(horrorState, showProgress, searchValue.value, showNoResult, "Horror")
-                    searchTitle(familyState, showProgress, searchValue.value, showNoResult, "Family")
+                    searchTitle(
+                        actionState,
+                        showProgress,
+                        searchValue.value,
+                        showNoResult,
+                        "Action"
+                    )
+                    searchTitle(
+                        romanceState,
+                        showProgress,
+                        searchValue.value,
+                        showNoResult,
+                        "Romance"
+                    )
+                    searchTitle(
+                        horrorState,
+                        showProgress,
+                        searchValue.value,
+                        showNoResult,
+                        "Horror"
+                    )
+                    searchTitle(
+                        familyState,
+                        showProgress,
+                        searchValue.value,
+                        showNoResult,
+                        "Family"
+                    )
                 }
 
                 val actionOnly = actionState.value
@@ -455,458 +579,137 @@ fun SearchPanel(nav: NavHostController) {
                 val familyOnly = familyState.value
 
                 if (actionOnly.isNotEmpty()) {
-                    Row(
-                        modifier = Modifier.padding(top = 12.dp)
-                    ) {
-                        Text(
-                            text = "Top Action",
-                            modifier = Modifier
-                                .padding(
-                                    vertical = 2.dp,
-                                    horizontal = 12.dp
-                                )
-                                .fillMaxWidth(),
-                            style = TextStyle(
-                                fontSize = 18.sp,
-                                color = Color.White,
-                                fontFamily = sans_bold
-                            )
-                        )
-                    }
-                    Row() {
-                        val lazyListState = rememberLazyListState()
-
-                        var pageSize = actionOnly.size / 3
-                        if (pageSize == 0) {
-                            pageSize = 1
-                        }
-                        LazyRow(
-                            modifier =
-                            Modifier
-                                .padding(
-                                    vertical = 2.dp,
-                                    horizontal = 12.dp
-                                )
-                                .clip(RoundedCornerShape(12.dp))
-                                .fillMaxWidth(),
-                            state = lazyListState,
-                        ) {
-                            itemsIndexed(actionOnly) { index, item ->
-                                val pageIndex = index / pageSize
-                                val pageStartIndex = pageIndex * pageSize
-                                val pageEndIndex = (pageIndex + 1) * pageSize - 1
-
-                                if (index in pageStartIndex..pageEndIndex) {
-                                    if ((item.poster?.length ?: 0) > 0) {
-                                        Row(
-                                            horizontalArrangement = Arrangement.SpaceEvenly,
-                                            modifier = Modifier
-                                                .fillMaxWidth()
-                                                .padding(2.dp)
-                                        ) {
-                                            val showShimmer = remember { mutableStateOf(true) }
-                                            Row(
-                                            ) {
-                                                AsyncImage(
-                                                    model =
-                                                    ImageRequest.Builder(LocalContext.current)//"https://image.tmdb.org/t/p/w1280"
-                                                        .data(
-                                                            (item.poster?.split(".jpg")?.get(0)
-                                                                ?: "") + "QL75_UX380_CR0,0,380,562.jpg"
-                                                        )//item.poster?.url ?: TEST_IMAGE_URLS[0]
-                                                        .crossfade(true)
-                                                        .build(),
-                                                    contentDescription = "Movie Poster",
-                                                    contentScale = ContentScale.Crop,
-                                                    modifier = Modifier
-                                                        .height(158.dp)
-                                                        .width(110.dp)
-                                                        .clip(
-                                                            RoundedCornerShape(
-                                                                5.dp
-                                                            )
-                                                        )
-                                                        .background(
-                                                            shimmerBrush(
-                                                                targetValue = 1300f,
-                                                                showShimmer = showShimmer.value
-                                                            )
-                                                        )
-                                                        .clickable {
-                                                            clickedName = item.title
-                                                            clickedID = item.id
-                                                            prevPageHistory.add(
-                                                                PrevNav(
-                                                                    prevPage = "searchPanel",
-                                                                    prevName = clickedName,
-                                                                    prevID = clickedID,
-                                                                    prevMediaType = mediaType,
-                                                                    prevSearch = searchValue.value,
-                                                                )
-                                                            )
-                                                            nav.navigate("videoScreen")
-                                                        },
-                                                    onSuccess = {
-                                                        showShimmer.value = false
-                                                        println("Success")
-                                                    },
-                                                )
-
-                                            }
-                                        }
-                                        Spacer(
-                                            modifier = Modifier.width(
-                                                4.dp
-                                            )
-                                        )
-                                    }
-                                }
-
-                            }
-
-                        }
-                    }
+                    setupGenre("Action", actionOnly, nav)
                 }
-
                 if (romanceOnly.isNotEmpty()) {
-                    Row(
-                        modifier = Modifier.padding(top = 12.dp)
-                    ) {
-                        Text(
-                            text = "Top Romance",
-                            modifier = Modifier
-                                .padding(
-                                    vertical = 2.dp,
-                                    horizontal = 12.dp
-                                )
-                                .fillMaxWidth(),
-                            style = TextStyle(
-                                fontSize = 18.sp,
-                                color = Color.White,
-                                fontFamily = sans_bold
-                            )
-                        )
-                    }
-                    Row() {
-                        val lazyListState = rememberLazyListState()
-                        var pageSize = romanceOnly.size / 3
-                        if (pageSize == 0) {
-                            pageSize = 1
-                        }
-                        LazyRow(
-                            modifier =
-                            Modifier
-                                .padding(
-                                    vertical = 2.dp,
-                                    horizontal = 12.dp
-                                )
-                                .clip(RoundedCornerShape(12.dp))
-                                .fillMaxWidth(),
-                            state = lazyListState,
-                        ) {
-                            itemsIndexed(romanceOnly) { index, item ->
-                                val pageIndex = index / pageSize
-                                val pageStartIndex = pageIndex * pageSize
-                                val pageEndIndex = (pageIndex + 1) * pageSize - 1
-
-                                if (index in pageStartIndex..pageEndIndex) {
-                                    if ((item.poster?.length ?: 0) > 0) {
-                                        Row(
-                                            horizontalArrangement = Arrangement.SpaceEvenly,
-                                            modifier = Modifier
-                                                .fillMaxWidth()
-                                                .padding(2.dp)
-                                        ) {
-                                            val showShimmer = remember { mutableStateOf(true) }
-                                            Row(
-                                            ) {
-                                                AsyncImage(
-                                                    model =
-                                                    ImageRequest.Builder(LocalContext.current)//"https://image.tmdb.org/t/p/w1280"
-                                                        .data(
-                                                            (item.poster?.split(".jpg")?.get(0)
-                                                                ?: "") + "QL75_UX380_CR0,0,380,562.jpg"
-                                                        )//item.poster?.url ?: TEST_IMAGE_URLS[0]
-                                                        .crossfade(true)
-                                                        .build(),
-                                                    contentDescription = "Movie Poster",
-                                                    contentScale = ContentScale.Crop,
-                                                    modifier = Modifier
-                                                        .height(158.dp)
-                                                        .width(110.dp)
-                                                        .clip(
-                                                            RoundedCornerShape(
-                                                                5.dp
-                                                            )
-                                                        )
-                                                        .background(
-                                                            shimmerBrush(
-                                                                targetValue = 1300f,
-                                                                showShimmer = showShimmer.value
-                                                            )
-                                                        )
-                                                        .clickable {
-                                                            clickedName = item.title
-                                                            clickedID = item.id
-                                                            prevPageHistory.add(
-                                                                PrevNav(
-                                                                    prevPage = "searchPanel",
-                                                                    prevName = clickedName,
-                                                                    prevID = clickedID,
-                                                                    prevMediaType = mediaType,
-                                                                    prevSearch = searchValue.value,
-                                                                )
-                                                            )
-                                                            nav.navigate("videoScreen")
-                                                        },
-                                                    onSuccess = {
-                                                        showShimmer.value = false
-                                                    },
-                                                )
-
-                                            }
-                                        }
-                                        Spacer(
-                                            modifier = Modifier.width(
-                                                4.dp
-                                            )
-                                        )
-                                    }
-                                }
-                            }
-                        }
-                    }
-
+                    setupGenre("Romance", romanceOnly, nav)
                 }
                 if (horrorOnly.isNotEmpty()) {
-                    Row(
-                        modifier = Modifier.padding(top = 12.dp)
-                    ) {
-                        Text(
-                            text = "Top Horror",
-                            modifier = Modifier
-                                .padding(
-                                    vertical = 2.dp,
-                                    horizontal = 12.dp
-                                )
-                                .fillMaxWidth(),
-                            style = TextStyle(
-                                fontSize = 18.sp,
-                                color = Color.White,
-                                fontFamily = sans_bold
-                            )
-                        )
-                    }
-                    Row() {
-                        val lazyListState = rememberLazyListState()
-                        var pageSize = horrorOnly.size / 3
-                        if (pageSize == 0) {
-                            pageSize = 1
-                        }
-                        LazyRow(
-                            modifier =
-                            Modifier
-                                .padding(
-                                    vertical = 2.dp,
-                                    horizontal = 12.dp
-                                )
-                                .clip(RoundedCornerShape(12.dp))
-                                .fillMaxWidth(),
-                            state = lazyListState,
-                        ) {
-                            itemsIndexed(horrorOnly) { index, item ->
-                                val pageIndex = index / pageSize
-                                val pageStartIndex = pageIndex * pageSize
-                                val pageEndIndex = (pageIndex + 1) * pageSize - 1
-
-                                if (index in pageStartIndex..pageEndIndex) {
-                                    if ((item.poster?.length ?: 0) > 0) {
-                                        Row(
-                                            horizontalArrangement = Arrangement.SpaceEvenly,
-                                            modifier = Modifier
-                                                .fillMaxWidth()
-                                                .padding(2.dp)
-                                        ) {
-                                            val showShimmer = remember { mutableStateOf(true) }
-                                            Row(
-                                            ) {
-                                                AsyncImage(
-                                                    model =
-                                                    ImageRequest.Builder(LocalContext.current)//"https://image.tmdb.org/t/p/w1280"
-                                                        .data(
-                                                            (item.poster?.split(".jpg")?.get(0)
-                                                                ?: "") + "QL75_UX380_CR0,0,380,562.jpg"
-                                                        )//item.poster?.url ?: TEST_IMAGE_URLS[0]
-                                                        .crossfade(true)
-                                                        .build(),
-                                                    contentDescription = "Movie Poster",
-                                                    contentScale = ContentScale.Crop,
-                                                    modifier = Modifier
-                                                        .height(158.dp)
-                                                        .width(110.dp)
-                                                        .clip(
-                                                            RoundedCornerShape(
-                                                                5.dp
-                                                            )
-                                                        )
-                                                        .background(
-                                                            shimmerBrush(
-                                                                targetValue = 1300f,
-                                                                showShimmer = showShimmer.value
-                                                            )
-                                                        )
-                                                        .clickable {
-                                                            clickedName = item.title
-                                                            clickedID = item.id
-                                                            prevPageHistory.add(
-                                                                PrevNav(
-                                                                    prevPage = "searchPanel",
-                                                                    prevName = clickedName,
-                                                                    prevID = clickedID,
-                                                                    prevMediaType = mediaType,
-                                                                    prevSearch = searchValue.value,
-                                                                )
-                                                            )
-                                                            nav.navigate("videoScreen")
-                                                        },
-                                                    onSuccess = {
-                                                        showShimmer.value = false
-                                                    },
-                                                )
-
-                                            }
-                                        }
-                                        Spacer(
-                                            modifier = Modifier.width(
-                                                4.dp
-                                            )
-                                        )
-                                    }
-                                }
-                            }
-                        }
-                    }
-
+                    setupGenre("Horror", horrorOnly, nav)
                 }
                 if (familyOnly.isNotEmpty()) {
-                    Row(
-                        modifier = Modifier.padding(top = 12.dp)
-                    ) {
-                        Text(
-                            text = "Top Family",
-                            modifier = Modifier
-                                .padding(
-                                    vertical = 2.dp,
-                                    horizontal = 12.dp
-                                )
-                                .fillMaxWidth(),
-                            style = TextStyle(
-                                fontSize = 18.sp,
-                                color = Color.White,
-                                fontFamily = sans_bold
-                            )
-                        )
-                    }
-                    Row() {
-                        val lazyListState = rememberLazyListState()
-                        var pageSize = familyOnly.size / 3
-                        if (pageSize == 0) {
-                            pageSize = 1
-                        }
-                        LazyRow(
-                            modifier =
-                            Modifier
-                                .padding(
-                                    vertical = 2.dp,
-                                    horizontal = 12.dp
-                                )
-                                .clip(RoundedCornerShape(12.dp))
-                                .fillMaxWidth(),
-                            state = lazyListState,
-                        ) {
-                            itemsIndexed(familyOnly) { index, item ->
-                                val pageIndex = index / pageSize
-                                val pageStartIndex = pageIndex * pageSize
-                                val pageEndIndex = (pageIndex + 1) * pageSize - 1
-
-                                if (index in pageStartIndex..pageEndIndex) {
-                                    if ((item.poster?.length ?: 0) > 0) {
-                                        Row(
-                                            horizontalArrangement = Arrangement.SpaceEvenly,
-                                            modifier = Modifier
-                                                .fillMaxWidth()
-                                                .padding(2.dp)
-                                        ) {
-                                            val showShimmer = remember { mutableStateOf(true) }
-                                            Row(
-                                            ) {
-                                                AsyncImage(
-                                                    model =
-                                                    ImageRequest.Builder(LocalContext.current)//"https://image.tmdb.org/t/p/w1280"
-                                                        .data(
-                                                            (item.poster?.split(".jpg")?.get(0)
-                                                                ?: "") + "QL75_UX380_CR0,0,380,562.jpg"
-                                                        )//item.poster?.url ?: TEST_IMAGE_URLS[0]
-                                                        .crossfade(true)
-                                                        .build(),
-                                                    contentDescription = "Movie Poster",
-                                                    contentScale = ContentScale.Crop,
-                                                    modifier = Modifier
-                                                        .height(158.dp)
-                                                        .width(110.dp)
-                                                        .clip(
-                                                            RoundedCornerShape(
-                                                                5.dp
-                                                            )
-                                                        )
-                                                        .background(
-                                                            shimmerBrush(
-                                                                targetValue = 1300f,
-                                                                showShimmer = showShimmer.value
-                                                            )
-                                                        )
-                                                        .clickable {
-                                                            clickedName = item.title
-                                                            clickedID = item.id
-                                                            prevPageHistory.add(
-                                                                PrevNav(
-                                                                    prevPage = "searchPanel",
-                                                                    prevName = clickedName,
-                                                                    prevID = clickedID,
-                                                                    prevMediaType = mediaType,
-                                                                    prevSearch = searchValue.value,
-                                                                )
-                                                            )
-                                                            nav.navigate("videoScreen")
-                                                        },
-                                                    onSuccess = {
-                                                        showShimmer.value = false
-                                                    },
-                                                )
-
-                                            }
-                                        }
-                                        Spacer(
-                                            modifier = Modifier.width(
-                                                4.dp
-                                            )
-                                        )
-                                    }
-                                }
-                            }
-                        }
-                    }
-
+                    setupGenre("Family", familyOnly, nav)
                 }
             }
-
         }
     }
 }
 
+@RequiresApi(Build.VERSION_CODES.Q)
+@Composable
+fun setupGenre(genre: String, data: List<SearchTitle>, nav: NavHostController) {
+    Row(
+        modifier = Modifier.padding(top = 12.dp)
+    ) {
+        Text(
+            text = "Top $genre",
+            modifier = Modifier
+                .padding(
+                    vertical = 2.dp,
+                    horizontal = 12.dp
+                )
+                .fillMaxWidth(),
+            style = TextStyle(
+                fontSize = 18.sp,
+                color = Color.White,
+                fontFamily = sans_bold
+            )
+        )
+    }
+    Row {
+        val lazyListState = rememberLazyListState()
+        var pageSize = data.size / 3
+        if (pageSize == 0) {
+            pageSize = 1
+        }
+        LazyRow(
+            modifier =
+            Modifier
+                .padding(
+                    vertical = 2.dp,
+                    horizontal = 12.dp
+                )
+                .clip(RoundedCornerShape(12.dp))
+                .fillMaxWidth(),
+            state = lazyListState,
+        ) {
+            itemsIndexed(data) { index, item ->
+                val pageIndex = index / pageSize
+                val pageStartIndex = pageIndex * pageSize
+                val pageEndIndex = (pageIndex + 1) * pageSize - 1
+
+                if (index in pageStartIndex..pageEndIndex) {
+                    if ((item.poster?.length ?: 0) > 0) {
+                        Row(
+                            horizontalArrangement = Arrangement.SpaceEvenly,
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(2.dp)
+                        ) {
+                            val showShimmer = remember { mutableStateOf(true) }
+                            Row(
+                            ) {
+                                AsyncImage(
+                                    model =
+                                    ImageRequest.Builder(LocalContext.current)
+                                        .data(
+                                            (item.poster?.split(".jpg")?.get(0)
+                                                ?: "") + "QL75_UX380_CR0,0,380,562.jpg"
+                                        )
+                                        .crossfade(true)
+                                        .build(),
+                                    contentDescription = "Movie Poster",
+                                    contentScale = ContentScale.Crop,
+                                    modifier = Modifier
+                                        .height(158.dp)
+                                        .width(110.dp)
+                                        .clip(
+                                            RoundedCornerShape(
+                                                5.dp
+                                            )
+                                        )
+                                        .background(
+                                            shimmerBrush(
+                                                targetValue = 1300f,
+                                                showShimmer = showShimmer.value
+                                            )
+                                        )
+                                        .clickable {
+                                            clickedName = item.title
+                                            clickedID = item.id
+                                            prevPageHistory.add(
+                                                PrevNav(
+                                                    prevPage = "searchPanel",
+                                                    prevName = clickedName,
+                                                    prevID = clickedID,
+                                                    prevMediaType = mediaType,
+                                                    prevSearch = searchValue.value,
+                                                )
+                                            )
+                                            nav.navigate("videoScreen")
+                                        },
+                                    onSuccess = {
+                                        showShimmer.value = false
+                                    },
+                                )
+
+                            }
+                        }
+                        Spacer(
+                            modifier = Modifier.width(
+                                4.dp
+                            )
+                        )
+                    }
+                }
+            }
+        }
+    }
+
+}
 
 @Composable
-fun shimmerBrush(showShimmer: Boolean = true,targetValue:Float = 1000f): Brush {
+fun shimmerBrush(showShimmer: Boolean = true, targetValue: Float = 1000f): Brush {
     return if (showShimmer) {
         val shimmerColors = listOf(
             Color.LightGray.copy(alpha = 0.6f),
@@ -929,18 +732,22 @@ fun shimmerBrush(showShimmer: Boolean = true,targetValue:Float = 1000f): Brush {
         )
     } else {
         Brush.linearGradient(
-            colors = listOf(Color.Transparent,Color.Transparent),
+            colors = listOf(Color.Transparent, Color.Transparent),
             start = Offset.Zero,
             end = Offset.Zero
         )
     }
 }
 
-fun fetchTopSearchResult(l: MutableState<List<TrendingTitle>>, showProgress: MutableState<Boolean>) {
+fun fetchTopSearchResult(
+    l: MutableState<List<TrendingTitle>>,
+    showProgress: MutableState<Boolean>
+) {
     // val url = "https://api.themoviedb.org/3/search/tv?api_key=d56e51fb77b081a9cb5192eaaa7823ad&query=Sex"
     //val url = "https://api.themoviedb.org/3/trending/all/day?api_key=d56e51fb77b081a9cb5192eaaa7823ad&page=$page"
     val pageNo = (1..10).random()
-    val url = "https://api.themoviedb.org/3/discover/movie?api_key=d56e51fb77b081a9cb5192eaaa7823ad&language=en-US&sort_by=popularity.desc&include_adult=false&include_video=false&page=$pageNo"
+    val url =
+        "https://api.themoviedb.org/3/discover/movie?api_key=d56e51fb77b081a9cb5192eaaa7823ad&language=en-US&sort_by=popularity.desc&include_adult=false&include_video=false&page=$pageNo"
     val client = OkHttpClient()
     val request = okhttp3.Request.Builder()
         .url(url)
@@ -965,46 +772,57 @@ fun fetchTopSearchResult(l: MutableState<List<TrendingTitle>>, showProgress: Mut
         )
 }
 
-fun fetchResult(l: MutableState<List<TrendingTitle>>, showProgress: MutableState<Boolean>, q: String, noResult: MutableState<Boolean>) {
-        val url =
-            "https://api.themoviedb.org/3/search/multi?api_key=d56e51fb77b081a9cb5192eaaa7823ad&query=${
-                URLEncoder.encode(
-                    q,
-                    "UTF-8"
-                )
-            }"
-        val client = OkHttpClient()
-        val request = okhttp3.Request.Builder()
-            .url(url)
-            .build()
-
-        client
-            .newCall(request)
-            .enqueue(
-                object : Callback {
-                    override fun onFailure(call: Call, e: IOException) {
-                        println("Error, ${e.message}")
-                        e.printStackTrace()
-                    }
-
-                    override fun onResponse(call: Call, response: Response) {
-                        val json = response.body?.string()
-                        val movies = Gson().fromJson(json, TopResult::class.java)
-                        if (movies.results.isNullOrEmpty()) {
-                            l.value = emptyList()
-                            noResult.value = true
-                        } else {
-                            l.value = movies.results
-                            noResult.value = false
-                        }
-                        println("TMDB: $movies")
-                        showProgress.value = false
-                    }
-                }
+fun fetchResult(
+    l: MutableState<List<TrendingTitle>>,
+    showProgress: MutableState<Boolean>,
+    q: String,
+    noResult: MutableState<Boolean>
+) {
+    val url =
+        "https://api.themoviedb.org/3/search/multi?api_key=d56e51fb77b081a9cb5192eaaa7823ad&query=${
+            URLEncoder.encode(
+                q,
+                "UTF-8"
             )
+        }"
+    val client = OkHttpClient()
+    val request = okhttp3.Request.Builder()
+        .url(url)
+        .build()
+
+    client
+        .newCall(request)
+        .enqueue(
+            object : Callback {
+                override fun onFailure(call: Call, e: IOException) {
+                    println("Error, ${e.message}")
+                    e.printStackTrace()
+                }
+
+                override fun onResponse(call: Call, response: Response) {
+                    val json = response.body?.string()
+                    val movies = Gson().fromJson(json, TopResult::class.java)
+                    if (movies.results.isNullOrEmpty()) {
+                        l.value = emptyList()
+                        noResult.value = true
+                    } else {
+                        l.value = movies.results
+                        noResult.value = false
+                    }
+                    println("TMDB: $movies")
+                    showProgress.value = false
+                }
+            }
+        )
 }
 
-fun searchTitle(l: MutableState<List<SearchTitle>>, showProgress: MutableState<Boolean>, q: String, noResult: MutableState<Boolean>, type : String) {
+fun searchTitle(
+    l: MutableState<List<SearchTitle>>,
+    showProgress: MutableState<Boolean>,
+    q: String,
+    noResult: MutableState<Boolean>,
+    type: String
+) {
     var url = "https://a.ztorr.me/api/imdb?q=${URLEncoder.encode(q, "UTF-8")}"
     var isAddon = false
     if (type != "all") {

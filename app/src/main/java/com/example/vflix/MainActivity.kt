@@ -2,6 +2,7 @@ package com.example.vflix
 
 import android.os.Build
 import android.os.Bundle
+import android.view.WindowManager
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.annotation.RequiresApi
@@ -20,8 +21,16 @@ import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.zIndex
+import androidx.core.view.WindowCompat
+import androidx.core.view.WindowInsetsCompat
+import androidx.core.view.WindowInsetsControllerCompat
 import androidx.navigation.NavHostController
+import androidx.navigation.compose.NavHost
+import androidx.navigation.compose.composable
+import androidx.navigation.compose.rememberNavController
 import com.example.vflix.auth.DotsPreview
+import com.example.vflix.auth.db
+import com.example.vflix.parser.FetchChannels
 import com.example.vflix.ui.theme.sans_bold
 
 var appUserId = "1151584573787594752"
@@ -33,7 +42,12 @@ class MainActivity : ComponentActivity() {
 
         setContent {
 
-            /*var navController = rememberNavController()
+            var navController = rememberNavController()
+
+          /*  clickedID = "tt4574334"
+            clickedName = "Super 30"
+            mediaType = "tv"
+            VideoScreen(nav = navController)*/
             NavHost(navController, startDestination = "startApp") {
                 composable(route = "startApp") {
                     StartApp(navController)
@@ -56,10 +70,11 @@ class MainActivity : ComponentActivity() {
                 composable(route = "loginPage") {
                     LoginForm(nav = navController)
                 }
+                composable(route = "liveTV") {
+                    LiveTV(nav = navController)
+                }
             }
         }
-
-
 
         WindowCompat.setDecorFitsSystemWindows(window, false)
         WindowInsetsControllerCompat(window, window.decorView).let { controller ->
@@ -77,13 +92,13 @@ class MainActivity : ComponentActivity() {
             WindowManager.LayoutParams.LAYOUT_IN_DISPLAY_CUTOUT_MODE_SHORT_EDGES
         db.get()
         Thread {
-            Thread.sleep(2000)
+            Thread.sleep(500)
             showStartLogo = false
         }.start()
-             */
 
-            LiveTV()
-        }
+        Thread {
+            FetchChannels()
+        }.start()
     }
 }
 
@@ -112,18 +127,17 @@ fun StartLogo() {
         horizontalAlignment = androidx.compose.ui.Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.Center,
 
-    ) {
+        ) {
         Row(
             modifier = androidx.compose.ui.Modifier
                 .fillMaxSize()
-                .background(Color.Transparent)
-                ,
+                .background(Color.Transparent),
             verticalAlignment = androidx.compose.ui.Alignment.CenterVertically,
             horizontalArrangement = Arrangement.Center,
         ) {
-            Column (
+            Column(
                 horizontalAlignment = androidx.compose.ui.Alignment.CenterHorizontally,
-            ){
+            ) {
                 Text(
                     text = "V",
                     fontFamily = sans_bold,

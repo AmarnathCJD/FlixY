@@ -12,7 +12,6 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.material.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.State
 import androidx.compose.ui.Alignment
@@ -78,6 +77,6 @@ fun DotsPulsing() {
 
 @Preview(showBackground = true)
 @Composable
-fun DotsPreview() = MaterialTheme {
+fun DotsPreview() {
     DotsPulsing()
 }
