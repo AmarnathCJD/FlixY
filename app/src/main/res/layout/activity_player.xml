@@ -42,10 +42,10 @@
             android:layout_height="wrap_content"
             android:layout_gravity="bottom|end"
             android:layout_marginEnd="115dp"
-            android:layout_marginBottom="19dp"
+            android:layout_marginBottom="18dp"
             android:clickable="true"
             android:onClick="onZoomButtonClick"
-            android:src="@drawable/ic_baseline_aspect_ratio_24"
+            android:src="@drawable/ic_baseline_fullscreen_24"
             android:visibility="invisible" />
 
         <ImageView
@@ -60,7 +60,16 @@
             android:src="@drawable/ic_baseline_screen_rotation_24"
             android:visibility="invisible" />
 
+        <ImageView
+            android:id="@+id/qualityButton"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_gravity="bottom|end"
+            android:layout_marginEnd="225dp"
+            android:layout_marginBottom="18dp"
+            android:clickable="true"
+            android:onClick="onQualityButtonClick"
+            android:src="@drawable/ic_hd"
+            android:visibility="visible" />
     </FrameLayout>
-
-
 </androidx.constraintlayout.widget.ConstraintLayout>
