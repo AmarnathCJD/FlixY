@@ -1,0 +1,66 @@
+<androidx.constraintlayout.widget.ConstraintLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:layout_width="fill_parent"
+    android:layout_height="fill_parent"
+    tools:context=".MainActivity">
+
+    <FrameLayout
+        android:id="@+id/frameLayout"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:background="#000000"
+        tools:ignore="MissingConstraints">
+
+        <androidx.media3.ui.PlayerView
+            android:id="@+id/playerView"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            app:animation_enabled="true"
+            app:resize_mode="fill"
+            app:show_buffering="when_playing"
+            app:show_fastforward_button="true"
+            app:show_next_button="false"
+            app:show_previous_button="false"
+            app:show_rewind_button="true"
+            app:show_subtitle_button="true"
+            app:use_artwork="true"
+            app:use_controller="true" />
+
+        <com.google.android.exoplayer2.ui.StyledPlayerControlView
+            android:id="@+id/styledPlayerControlView"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:layout_gravity="center"
+            app:animation_enabled="true">
+        </com.google.android.exoplayer2.ui.StyledPlayerControlView>
+
+
+        <ImageView
+            android:id="@+id/zoomButton"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_gravity="bottom|end"
+            android:layout_marginEnd="115dp"
+            android:layout_marginBottom="19dp"
+            android:clickable="true"
+            android:onClick="onZoomButtonClick"
+            android:src="@drawable/ic_baseline_aspect_ratio_24"
+            android:visibility="invisible" />
+
+        <ImageView
+            android:id="@+id/rotateButton"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_gravity="bottom|end"
+            android:layout_marginEnd="170dp"
+            android:layout_marginBottom="19dp"
+            android:clickable="true"
+            android:onClick="onRotateButtonClick"
+            android:src="@drawable/ic_baseline_screen_rotation_24"
+            android:visibility="invisible" />
+
+    </FrameLayout>
+
+
+</androidx.constraintlayout.widget.ConstraintLayout>

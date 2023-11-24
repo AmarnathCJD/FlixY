@@ -396,7 +396,7 @@ fun VideoScreen(
                     }
                     if (hlsSource.value.getBest() != "") {
                         showSpinner.value = false
-                        VideoPlayer(player, hlsSource.value.getBest(), isF, context)
+                        VidPlayer(player, hlsSource.value.getBest(), isF, context)
                     }
                 }
             } else {
@@ -911,7 +911,7 @@ fun VideoScreen(
             }
         }
         if (!isF.value && !imdbTTState.value.id.isNullOrEmpty()) {
-            MediaMetadata(imdbTTState)
+            MediaMeta(imdbTTState)
         }
 
         if (!isF.value && !hlsSource.value.tmdbID.isNullOrEmpty()) {
@@ -929,7 +929,7 @@ fun VideoScreen(
 
 @androidx.annotation.OptIn(androidx.media3.common.util.UnstableApi::class)
 @Composable
-fun VideoPlayer(
+fun VidPlayer(
     player: ExoPlayer,
     hslSource: String,
     isF: MutableState<Boolean>,
@@ -1104,7 +1104,7 @@ fun Context.setScreenOrientation(orientation: Int) {
 
 @RequiresApi(Build.VERSION_CODES.Q)
 @Composable
-fun MediaMetadata(imdbTTState: MutableState<ImdbTitle>) {
+fun MediaMeta(imdbTTState: MutableState<ImdbTitle>) {
     val imdbTT = imdbTTState.value
 
     Column(

@@ -119,26 +119,44 @@ fun LiveTV(nav: NavHostController) {
                 )
             }
         } else {
-            val k = encodeHexToURLSafeBase64(currentDRM.value.key)
-            val kid = encodeHexToURLSafeBase64(currentDRM.value.keyId)
-            val clearkeyJSON =
-                "{\"keys\":[{\"kty\":\"oct\",\"k\":\"$k\",\"kid\":\"$kid\"}],\"type\":\"temporary\"}"
-            val clearkeyDrmSessionManager: DrmSessionManager = DefaultDrmSessionManager.Builder()
-                .setUuidAndExoMediaDrmProvider(C.CLEARKEY_UUID, FrameworkMediaDrm.DEFAULT_PROVIDER)
-                .build(
-                    LocalMediaDrmCallback(clearkeyJSON.toByteArray(StandardCharsets.UTF_8))
-                )
+            var player: ExoPlayer? = null
+            if (currentDRM.value.key == "") {
+                player = remember {
+                    ExoPlayer.Builder(context).setTrackSelector(trackSelector)
+                        .setMediaSourceFactory(
+                            DefaultMediaSourceFactory(context)
+                        )
+                        .build()
+                        .apply {
+                            prepare()
+                        }
+                }
+            } else {
+                val k = encodeHexToURLSafeBase64(currentDRM.value.key)
+                val kid = encodeHexToURLSafeBase64(currentDRM.value.keyId)
+                val clearkeyJSON =
+                    "{\"keys\":[{\"kty\":\"oct\",\"k\":\"$k\",\"kid\":\"$kid\"}],\"type\":\"temporary\"}"
+                val clearkeyDrmSessionManager: DrmSessionManager =
+                    DefaultDrmSessionManager.Builder()
+                        .setUuidAndExoMediaDrmProvider(
+                            C.CLEARKEY_UUID,
+                            FrameworkMediaDrm.DEFAULT_PROVIDER
+                        )
+                        .build(
+                            LocalMediaDrmCallback(clearkeyJSON.toByteArray(StandardCharsets.UTF_8))
+                        )
 
-            val player: ExoPlayer = remember {
-                ExoPlayer.Builder(context).setTrackSelector(trackSelector)
-                    .setMediaSourceFactory(
-                        DefaultMediaSourceFactory(context)
-                            .setDrmSessionManagerProvider { clearkeyDrmSessionManager }
-                    )
-                    .build()
-                    .apply {
-                        prepare()
-                    }
+                player = remember {
+                    ExoPlayer.Builder(context).setTrackSelector(trackSelector)
+                        .setMediaSourceFactory(
+                            DefaultMediaSourceFactory(context)
+                                .setDrmSessionManagerProvider { clearkeyDrmSessionManager }
+                        )
+                        .build()
+                        .apply {
+                            prepare()
+                        }
+                }
             }
 
             BackHandler {
@@ -258,13 +276,23 @@ fun LiveTV(nav: NavHostController) {
                     )
                 }
 
-                player.addMediaItem(
-                    MediaItem.Builder()
-                        .setUri(currentDRM.value.mpd + "?headers=eyJob3N0IjoiYnBwcm9kM2xpbmVhci5ha2FtYWl6ZWQubmV0In0%3D")
-                        .setMimeType(MimeTypes.APPLICATION_MPD)
-                        .setDrmConfiguration(DrmConfiguration.Builder(C.WIDEVINE_UUID).build())
-                        .build()
-                )
+                if (currentDRM.value.key == "") {
+                    println("MPD: ${currentDRM.value.mpd}")
+                    player.addMediaItem(
+                        MediaItem.Builder()
+                            .setUri(currentDRM.value.mpd)
+                            .setMimeType(MimeTypes.APPLICATION_MPD)
+                            .build()
+                    )
+                } else {
+                    player.addMediaItem(
+                        MediaItem.Builder()
+                            .setUri(currentDRM.value.mpd + "?headers=eyJob3N0IjoiYnBwcm9kM2xpbmVhci5ha2FtYWl6ZWQubmV0In0%3D")
+                            .setMimeType(MimeTypes.APPLICATION_MPD)
+                            .setDrmConfiguration(DrmConfiguration.Builder(C.WIDEVINE_UUID).build())
+                            .build()
+                    )
+                }
 
                 player.prepare()
 

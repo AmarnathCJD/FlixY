@@ -371,11 +371,19 @@ fun GetDRM(channelID: String, drm: MutableState<DRM>) {
                     if (body != null) {
                         val json = com.google.gson.Gson()
                             .fromJson(body, com.google.gson.JsonObject::class.java)
-                        val name = json["name"].asString
-                        val mpd = json["mpd"].asString
-                        val keyId = json["key_id"].asString
-                        val key = json["key"].asString
-                        var curr = ""
+                        var curr = ""; var name = ""; var mpd = ""; var keyId = ""; var key = ""
+                        if (json.has("name")) {
+                            name = json["name"].asString
+                        }
+                        if (json.has("mpd")) {
+                            mpd = json["mpd"].asString
+                        }
+                        if (json.has("key_id")) {
+                            keyId = json["key_id"].asString
+                        }
+                        if (json.has("key")) {
+                            key = json["key"].asString
+                        }
                         if (json.has("current_program")) {
                             curr = json["current_program"].asString
                         }

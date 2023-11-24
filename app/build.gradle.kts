@@ -13,7 +13,6 @@ android {
     defaultConfig {
         applicationId = "com.example.vflix"
         minSdk = 24
-        //noinspection EditedTargetSdkVersion
         targetSdk = 34
         versionCode = 1
         versionName = "1.6.1"
@@ -64,6 +63,8 @@ dependencies {
     implementation("androidx.compose.ui:ui-graphics")
     implementation("androidx.compose.ui:ui-tooling-preview")
     implementation("androidx.compose.material3:material3")
+    implementation("androidx.appcompat:appcompat:1.6.1")
+    implementation("com.google.android.material:material:1.10.0")
     testImplementation("junit:junit:4.13.2")
     androidTestImplementation("androidx.test.ext:junit:1.1.5")
     androidTestImplementation("androidx.test.espresso:espresso-core:3.5.1")
@@ -90,4 +91,12 @@ dependencies {
     implementation("androidx.room:room-ktx:2.4.0")
 
     implementation("androidx.lifecycle:lifecycle-viewmodel-compose:2.4.0-alpha03")
+
+    implementation("com.google.android.exoplayer:exoplayer:2.17.1")
+    implementation("com.google.android.exoplayer:exoplayer-ui:2.19.1")
+    implementation("com.google.android.exoplayer:exoplayer-hls:2.19.1")
+    implementation("com.google.android.exoplayer:exoplayer-common:2.19.1")
+    implementation("com.google.android.exoplayer:exoplayer-core:2.19.1")
+
+    implementation("com.github.rubensousa:previewseekbar-media3:1.1.1.0")
 }
