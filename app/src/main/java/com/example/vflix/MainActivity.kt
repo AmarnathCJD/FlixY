@@ -11,6 +11,7 @@ import android.view.WindowManager
 import android.widget.FrameLayout
 import android.widget.ImageView
 import androidx.activity.ComponentActivity
+import androidx.activity.compose.BackHandler
 import androidx.activity.compose.setContent
 import androidx.annotation.RequiresApi
 import androidx.appcompat.widget.AlertDialogLayout
@@ -33,6 +34,7 @@ import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.AlertDialogDefaults
 import androidx.compose.material3.Button
+import androidx.compose.material3.Card
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.Text
@@ -81,6 +83,7 @@ var video_view: PlayerView? = null
 val openDialog = mutableStateOf(false)
 val currentMPD = mutableStateOf("")
 val currentQualityUrl = mutableStateOf("")
+val hideChannelChooser = mutableStateOf(false)
 
 
 class MainActivity : ComponentActivity() {
@@ -126,11 +129,11 @@ class MainActivity : ComponentActivity() {
             }
         }
         */
-            setScreenOrientation(0)
-            ExoPlayerExample()
-            QualityPopup(onQualitySelected = { quality ->
-                println("quality selected: $quality")
-            })
+a()
+          //  ExoPlayerExample()
+            //QualityPopup(onQualitySelected = { quality ->
+              //  println("quality selected: $quality")
+            //})
             //QualityPopup(onQualitySelected = { quality ->
             //  println("quality selected: $quality")
             //})
@@ -163,6 +166,11 @@ class MainActivity : ComponentActivity() {
         }.start()
     }
 
+    @Composable
+    fun a() {
+       
+    }
+
 
     override fun onTouchEvent(event: MotionEvent?): Boolean {
         super.onTouchEvent(event)
@@ -176,8 +184,9 @@ class MainActivity : ComponentActivity() {
 
     @androidx.annotation.OptIn(androidx.media3.common.util.UnstableApi::class)
     fun onZoomButtonClick(view: View) {
+        println("zoom button clicked")
         val playerView = findViewById<PlayerView>(R.id.playerView)
-        if (playerView.resizeMode == AspectRatioFrameLayout.RESIZE_MODE_FIT) {
+        if (playerView.resizeMode == AspectRatioFrameLayout.RESIZE_MODE_FILL) {
             playerView.resizeMode = AspectRatioFrameLayout.RESIZE_MODE_ZOOM
         } else {
             playerView.resizeMode = AspectRatioFrameLayout.RESIZE_MODE_FILL
@@ -202,10 +211,168 @@ class MainActivity : ComponentActivity() {
 
 }
 
+data class Channel(val name: String, val url: String)
+
+@RequiresApi(Build.VERSION_CODES.Q)
+@Composable
+fun channelChooser() {
+    if (!hideChannelChooser.value) {
+        val channels = listOf(
+            Channel("HBO", "https://ctrl.laotv.la/live/HBO/index.m3u8"),
+            Channel(
+                "Jio Cinema",
+                "https://prod-ent-live-gm.jiocinema.com/hls/live/2099795/hd_akamai_iosmob_avc_mal_indvsaus_t2001/master.m3u8"
+            ),
+            Channel(
+                "Comedy Central",
+                "https://prod-ent-live-gm.jiocinema.com/bpk-tv/Comedy_Central_HD_voot_MOB/Fallback/index.m3u8"
+            ),
+            Channel("Star Movies", "https://ctrl.laotv.la/live/StarMovie/index.m3u8"),
+            Channel(
+                "Colors HD",
+                "https://prod-ent-live-gm.jiocinema.com/bpk-tv/Colors_HD_voot_MOB/Fallback/index.m3u8"
+            ),
+            Channel("AXN", "https://m1.ballnaja.com/live/AXN/playlist.m3u8"),
+            Channel("Cinemax", "https://ctrl.laotv.la/live/Cinemax/index.m3u8"),
+            Channel(
+                "Movies",
+                "https://shls-live-ak.akamaized.net/out/v1/90143f040feb40589d18c57863d9e829/index.m3u8"
+            ),
+            Channel(
+                "Colors Infinity",
+                "https://prod-ent-live-gm.jiocinema.com/bpk-tv/Colors_Infinity_HD_voot_MOB/Fallback/index.m3u8"
+            ),
+            Channel(
+                "Asianet HD",
+                "https://mprvod01.neestream.net/anandmedia/asianethd_576/index.m3u8"
+            ),
+            Channel(
+                "Star World",
+                "https://prod-ent-live-gm.jiocinema.com/bpk-tv/Star_World_HD_voot_MOB/Fallback/index.m3u8"
+            ),
+            Channel(
+                "Asianet Movies",
+                "https://mprvod01.neestream.net/anandmedia/asianetmovies_576/index.m3u8"
+            ),
+            Channel(
+                "Asianet Plus",
+                "https://mprvod01.neestream.net/anandmedia/asianetplus_576/index.m3u8"
+            ),
+        )
+
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .background(Color.Transparent)
+                .padding(top = 30.dp, bottom = 30.dp, start = 30.dp, end = 30.dp)
+        ) {
+            AlertDialog(
+                modifier = Modifier
+                    .padding(top = 25.dp, bottom = 25.dp, start = 10.dp, end = 10.dp)
+                    .shadow(
+                        elevation = 5.dp,
+                        shape = androidx.compose.foundation.shape.RoundedCornerShape(2.dp),
+                        clip = true,
+                        ambientColor = Color(0xFF000000),
+                        spotColor = Color(0xFFC27E7E),
+                    ),
+                onDismissRequest = { openDialog.value = false },
+                title = { Text(text = "Select Channel", fontFamily = sans_bold) },
+                text = {
+                    Column(
+                        modifier = Modifier
+                            .verticalScroll(rememberScrollState())
+                            .fillMaxSize()
+                    ) {
+                        Text(text = "Select the channel you want to watch", fontFamily = sans_bold)
+                        channels.forEach { channel ->
+                            Button(
+                                onClick = {
+                                    currentMPD.value = channel.url
+                                    currentQualityUrl.value = channel.url
+                                    openDialog.value = false
+                                    hideChannelChooser.value = true
+                                },
+
+                                modifier = Modifier
+                                    .padding(1.dp)
+                                    .padding(
+                                        top = 4.dp,
+                                    )
+                                    .fillMaxWidth(),
+                                colors = androidx.compose.material3.ButtonDefaults.buttonColors(
+                                    containerColor = Color(0xFF1F1F1F),
+                                    contentColor = Color.White
+                                ),
+                                shape = androidx.compose.foundation.shape.RoundedCornerShape(15.dp)
+                            ) {
+                                Text(text = channel.name, fontFamily = sans_bold)
+                                if (channel.url == currentMPD.value) {
+                                    Icon(
+                                        imageVector = Icons.Default.Settings,
+                                        contentDescription = "Settings",
+                                        tint = Color(0xFF651FFF),
+                                        modifier = Modifier
+                                            .width(30.dp)
+                                            .height(30.dp)
+                                            .padding(start = 10.dp)
+                                    )
+                                }
+                            }
+                        }
+                    }
+                },
+                confirmButton = {
+                    Button(
+                        onClick = { openDialog.value = false },
+                        modifier = Modifier
+                            .padding(0.dp)
+                            .padding(
+                                top = 0.dp,
+                            )
+                            .clip(androidx.compose.foundation.shape.RoundedCornerShape(0.dp))
+                            .shadow(
+                                elevation = 0.dp,
+                                shape = androidx.compose.foundation.shape.RoundedCornerShape(0.dp)
+                            ),
+                        shape = androidx.compose.foundation.shape.RoundedCornerShape(13.dp),
+                        colors = androidx.compose.material3.ButtonDefaults.buttonColors(
+                            containerColor = Color(0xFFF50057),
+                            contentColor = Color.White
+                        )
+                    ) {
+                        Text(
+                            text = "Confirm",
+                            fontFamily = sans_bold
+                        )
+                    }
+                },
+                dismissButton = {
+                    Button(
+                        onClick = { openDialog.value = false },
+                        modifier = Modifier
+                            .padding(0.dp)
+                            .padding(
+                                top = 0.dp,
+                            ),
+                        shape = androidx.compose.foundation.shape.RoundedCornerShape(13.dp),
+                        colors = androidx.compose.material3.ButtonDefaults.buttonColors(
+                            containerColor = Color(0xFF651FFF),
+                            contentColor = Color.White
+                        )
+                    ) {
+                        Text(text = "Cancel", fontFamily = sans_bold)
+                    }
+                },
+                containerColor = Color(0xC4B5B2BB),
+            )
+        }
+    }
+}
+
 @RequiresApi(Build.VERSION_CODES.Q)
 @Composable
 fun QualityPopup(onQualitySelected: (String) -> Unit) {
-    val height = 500.dp
     if (openDialog.value) {
         Box(
             modifier = Modifier
@@ -215,7 +382,14 @@ fun QualityPopup(onQualitySelected: (String) -> Unit) {
         ) {
             AlertDialog(
                 modifier = Modifier
-                    .padding(top = 25.dp, bottom = 25.dp, start = 10.dp, end = 10.dp),
+                    .padding(top = 25.dp, bottom = 25.dp, start = 10.dp, end = 10.dp)
+                    .shadow(
+                        elevation = 5.dp,
+                        shape = androidx.compose.foundation.shape.RoundedCornerShape(2.dp),
+                        clip = true,
+                        ambientColor = Color(0xFF000000),
+                        spotColor = Color(0xFFC27E7E),
+                    ),
                 onDismissRequest = { openDialog.value = false },
                 title = { Text(text = "Select Quality", fontFamily = sans_bold) },
                 text = {
@@ -229,8 +403,41 @@ fun QualityPopup(onQualitySelected: (String) -> Unit) {
                                 .wrapContentSize()
                         }
                     ) {
-                        Text(text = "Select the quality you want to watch", fontFamily = sans_bold)
-                        Q.forEach { quality ->
+                        Text(
+                            text = "Select the quality you want to watch",
+                            fontFamily = sans_bold
+                        )
+                        Button(
+                            onClick = {
+                                currentQualityUrl.value = currentMPD.value
+                                openDialog.value = false
+                            },
+                            modifier = Modifier
+                                .padding(1.dp)
+                                .padding(
+                                    top = 4.dp,
+                                )
+                                .fillMaxWidth(),
+                            colors = androidx.compose.material3.ButtonDefaults.buttonColors(
+                                containerColor = Color(0xFF1F1F1F),
+                                contentColor = Color.White
+                            ),
+                            shape = androidx.compose.foundation.shape.RoundedCornerShape(15.dp)
+                        ) {
+                            Text(text = "Auto", fontFamily = sans_bold)
+                            if (currentQualityUrl.value == currentMPD.value) {
+                                Icon(
+                                    imageVector = Icons.Default.Settings,
+                                    contentDescription = "Settings",
+                                    tint = Color(0xFF651FFF),
+                                    modifier = Modifier
+                                        .width(30.dp)
+                                        .height(30.dp)
+                                        .padding(start = 10.dp)
+                                )
+                            }
+                        }
+                        Q.reversed().forEach { quality ->
                             Button(
                                 onClick = {
                                     currentQualityUrl.value = quality.url
@@ -246,8 +453,8 @@ fun QualityPopup(onQualitySelected: (String) -> Unit) {
                                 colors = androidx.compose.material3.ButtonDefaults.buttonColors(
                                     containerColor = Color(0xFF1F1F1F),
                                     contentColor = Color.White
-                                )
-                                , shape = androidx.compose.foundation.shape.RoundedCornerShape(15.dp)
+                                ),
+                                shape = androidx.compose.foundation.shape.RoundedCornerShape(15.dp)
                             ) {
                                 Text(text = quality.name, fontFamily = sans_bold)
                                 if (quality.url == currentQualityUrl.value) {
@@ -284,8 +491,10 @@ fun QualityPopup(onQualitySelected: (String) -> Unit) {
                             contentColor = Color.White
                         )
                     ) {
-                        Text(text = "Confirm",
-                            fontFamily = sans_bold)
+                        Text(
+                            text = "Confirm",
+                            fontFamily = sans_bold
+                        )
                     }
                 },
                 dismissButton = {
@@ -313,120 +522,137 @@ fun QualityPopup(onQualitySelected: (String) -> Unit) {
 
 val Q = mutableListOf<Quality>()
 
+@RequiresApi(Build.VERSION_CODES.Q)
 @androidx.annotation.OptIn(androidx.media3.common.util.UnstableApi::class)
 @Composable
 fun ExoPlayerExample() {
-    val context = LocalContext.current
-    currentMPD.value = "https://prod-ent-live-gm.jiocinema.com/bpk-tv/Comedy_Central_HD_voot_MOB/Fallback/index.m3u8"
-    if (currentQualityUrl.value == "") {
-        currentQualityUrl.value = currentMPD.value
-    }
+    if (!hideChannelChooser.value) {
+        channelChooser()
+    } else {
+        val context = LocalContext.current
+        context.setScreenOrientation(android.content.pm.ActivityInfo.SCREEN_ORIENTATION_LANDSCAPE)
+        //currentMPD.value = "https://ctrl.laotv.la/live/HBO/index.m3u8"
+        if (currentQualityUrl.value == "") {
+            currentQualityUrl.value = currentMPD.value
+        }
 
-    if (Q.size == 0) {
-        m3u8ToQualities(
-            "https://prod-ent-live-gm.jiocinema.com/bpk-tv/Comedy_Central_HD_voot_MOB/Fallback/index.m3u8",
-            Q
-        )
-    }
-
-    if (Q.size > 0 && currentQualityUrl.value == "") {
-        currentQualityUrl.value = Q[Q.size - 1].url
-    }
-    val trackSelector =
-        remember { androidx.media3.exoplayer.trackselection.DefaultTrackSelector(context) }
-    val player = remember {
-        ExoPlayer.Builder(context).setTrackSelector(trackSelector)
-            .setMediaSourceFactory(
-                DefaultMediaSourceFactory(
-                    DefaultDataSourceFactory(
-                        context,
-                        DefaultHttpDataSource.Factory()
-                    )
-                )
+        if (Q.size == 0) {
+            m3u8ToQualities(
+                currentMPD.value,
+                Q
             )
-            .build()
-    }
+        }
 
-    if (currentQualityUrl.value != "") {
-        val mediaItem = HlsMediaSource.Factory(
-            DefaultHttpDataSource.Factory()
-        ).createMediaSource(
-            androidx.media3.common.MediaItem.Builder()
-                .setUri(currentQualityUrl.value)
-                .setMimeType(MimeTypes.APPLICATION_M3U8)
-                .setSubtitles(
-                    listOf(
-                        androidx.media3.common.MediaItem.Subtitle(
-                            Uri.parse("https://prod-ent-live-gm.jiocinema.com/bpk-tv/Comedy_Central_HD_voot_MOB/Fallback/index.m3u8"),
-                            MimeTypes.APPLICATION_M3U8,
-                            "en"
+        if (Q.size > 0 && currentQualityUrl.value == "") {
+            currentQualityUrl.value = Q[Q.size - 1].url
+        }
+        val trackSelector =
+            remember { androidx.media3.exoplayer.trackselection.DefaultTrackSelector(context) }
+        val player = remember {
+            ExoPlayer.Builder(context).setTrackSelector(trackSelector)
+                .setMediaSourceFactory(
+                    DefaultMediaSourceFactory(
+                        DefaultDataSourceFactory(
+                            context,
+                            DefaultHttpDataSource.Factory()
                         )
-                    )
-                )
-                .setSubtitleConfigurations(
-                    listOf(
-                        androidx.media3.common.MediaItem.SubtitleConfiguration.Builder(
-                            Uri.parse("https://raw.githubusercontent.com/andreyvit/subtitle-tools/master/sample.srt")
-                        )
-                            .setLanguage(
-                                "en"
-                            )
-                            .setLabel(
-                                "English"
-                            )
-                            .build()
                     )
                 )
                 .build()
-        )
+        }
 
-
-
-        player.setMediaSource(mediaItem)
-
-        player.prepare()
-        player.play()
-    }
-
-
-
-    AndroidView(factory = { context ->
-        LayoutInflater.from(context).inflate(R.layout.activity_player, null)
-    }, update = { view ->
-        video_view = view.findViewById(R.id.playerView)
-        video_view?.player = player
-        video_view?.setShowBuffering(PlayerView.SHOW_BUFFERING_NEVER)
-        val zoomButton = view.findViewById<ImageView>(R.id.zoomButton)
-        val rotateButton = view.findViewById<ImageView>(R.id.rotateButton)
-        val playerView = view.findViewById<PlayerView>(R.id.playerView)
-        val qualityButton = view.findViewById<ImageView>(R.id.qualityButton)
-        playerView.resizeMode = AspectRatioFrameLayout.RESIZE_MODE_FILL
-        playerView.setControllerVisibilityListener(
-            PlayerControlView.VisibilityListener { visibility ->
-                zoomButton.visibility = if (visibility == View.VISIBLE) View.VISIBLE else View.GONE
-                rotateButton.visibility =
-                    if (visibility == View.VISIBLE) View.VISIBLE else View.GONE
-                qualityButton.visibility =
-                    if (visibility == View.VISIBLE) View.VISIBLE else View.GONE
+        BackHandler {
+            if (openDialog.value) {
+                openDialog.value = false
+            } else {
+                player.stop()
+                context.setScreenOrientation(android.content.pm.ActivityInfo.SCREEN_ORIENTATION_PORTRAIT)
+                hideChannelChooser.value = false
             }
-        )
-        playerView.setShowBuffering(PlayerView.SHOW_BUFFERING_NEVER)
+        }
+
+        if (currentQualityUrl.value != "") {
+            val mediaItem = HlsMediaSource.Factory(
+                DefaultHttpDataSource.Factory()
+            ).createMediaSource(
+                androidx.media3.common.MediaItem.Builder()
+                    .setUri(currentQualityUrl.value)
+                    .setMimeType(MimeTypes.APPLICATION_M3U8)
+                    .setSubtitles(
+                        listOf(
+                            androidx.media3.common.MediaItem.Subtitle(
+                                Uri.parse("https://prod-ent-live-gm.jiocinema.com/bpk-tv/Comedy_Central_HD_voot_MOB/Fallback/index.m3u8"),
+                                MimeTypes.APPLICATION_M3U8,
+                                "en"
+                            )
+                        )
+                    )
+                    .setSubtitleConfigurations(
+                        listOf(
+                            androidx.media3.common.MediaItem.SubtitleConfiguration.Builder(
+                                Uri.parse("https://raw.githubusercontent.com/andreyvit/subtitle-tools/master/sample.srt")
+                            )
+                                .setLanguage(
+                                    "en"
+                                )
+                                .setLabel(
+                                    "English"
+                                )
+                                .build()
+                        )
+                    )
+                    .build()
+            )
 
 
-        playerView.showController()
-    })
 
-    ComposableLifecycle { _, event ->
-        when (event) {
-            Lifecycle.Event.ON_RESUME -> {
-                player.play()
+            player.setMediaSource(mediaItem)
+
+            player.prepare()
+            player.play()
+        }
+
+
+
+        AndroidView(factory = { context ->
+            LayoutInflater.from(context).inflate(R.layout.activity_player, null)
+        }, update = { view ->
+            video_view = view.findViewById(R.id.playerView)
+            video_view?.player = player
+            video_view?.setShowBuffering(PlayerView.SHOW_BUFFERING_NEVER)
+            val zoomButton = view.findViewById<ImageView>(R.id.zoomButton)
+            val rotateButton = view.findViewById<ImageView>(R.id.rotateButton)
+            val playerView = view.findViewById<PlayerView>(R.id.playerView)
+            val qualityButton = view.findViewById<ImageView>(R.id.qualityButton)
+            playerView.resizeMode = AspectRatioFrameLayout.RESIZE_MODE_FILL
+            playerView.setControllerVisibilityListener(
+                PlayerControlView.VisibilityListener { visibility ->
+                    zoomButton.visibility =
+                        if (visibility == View.VISIBLE) View.VISIBLE else View.GONE
+                    rotateButton.visibility =
+                        if (visibility == View.VISIBLE) View.VISIBLE else View.GONE
+                    qualityButton.visibility =
+                        if (visibility == View.VISIBLE) View.VISIBLE else View.GONE
+                }
+            )
+            playerView.setShowBuffering(PlayerView.SHOW_BUFFERING_NEVER)
+
+
+            playerView.showController()
+        })
+
+        ComposableLifecycle { _, event ->
+            when (event) {
+                Lifecycle.Event.ON_RESUME -> {
+                    player.play()
+                }
+
+                Lifecycle.Event.ON_PAUSE -> {
+                    player.pause()
+                }
+
+                else -> {}
             }
-
-            Lifecycle.Event.ON_PAUSE -> {
-                player.pause()
-            }
-
-            else -> {}
         }
     }
 }
