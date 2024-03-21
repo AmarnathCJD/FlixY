@@ -8,19 +8,16 @@ import android.view.MotionEvent
 import android.view.ScaleGestureDetector
 import android.view.View
 import android.view.WindowManager
-import android.widget.FrameLayout
 import android.widget.ImageView
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.setContent
 import androidx.annotation.RequiresApi
-import androidx.appcompat.widget.AlertDialogLayout
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -73,6 +70,9 @@ import androidx.media3.ui.AspectRatioFrameLayout
 import androidx.media3.ui.PlayerControlView
 import androidx.media3.ui.PlayerView
 import androidx.navigation.NavHostController
+import androidx.navigation.compose.NavHost
+import androidx.navigation.compose.composable
+import androidx.navigation.compose.rememberNavController
 import com.example.vflix.auth.DotsPreview
 import com.example.vflix.auth.db
 import com.example.vflix.parser.FetchChannels
@@ -82,7 +82,7 @@ var appUserId = "1151584573787594752"
 var video_view: PlayerView? = null
 val openDialog = mutableStateOf(false)
 val currentMPD = mutableStateOf("")
-val currentQualityUrl = mutableStateOf("")
+
 val hideChannelChooser = mutableStateOf(false)
 
 
@@ -129,14 +129,35 @@ class MainActivity : ComponentActivity() {
             }
         }
         */
-a()
-          //  ExoPlayerExample()
+            //clickedID = "/tv/avatar-the-last-airbender-38893"
+            //clickedName = "Avatar: The Last Airbender"
+            //mediaType = "tv"
+            val navController = rememberNavController()
+            NavHost(navController, startDestination = "homePage") {
+                composable(route = "homePage") {
+                    EnterAnimation {
+                        HomePage(navController = navController)
+                    }
+                }
+                composable(route = "videoScreen") {
+                    EnterAnimation {
+                        PlayerN(nav = navController)
+                    }
+                }
+                composable(route = "searchPanel") {
+                    EnterAnimation {
+                        SearchPanel(navController)
+                    }
+                }
+            }
+            //  ExoPlayerExample()
             //QualityPopup(onQualitySelected = { quality ->
-              //  println("quality selected: $quality")
+            //  println("quality selected: $quality")
             //})
             //QualityPopup(onQualitySelected = { quality ->
             //  println("quality selected: $quality")
             //})
+
 
         }
 
@@ -155,20 +176,7 @@ a()
 
         window.attributes.layoutInDisplayCutoutMode =
             WindowManager.LayoutParams.LAYOUT_IN_DISPLAY_CUTOUT_MODE_SHORT_EDGES
-        db.get()
-        Thread {
-            Thread.sleep(500)
-            showStartLogo = false
-        }.start()
 
-        Thread {
-            FetchChannels()
-        }.start()
-    }
-
-    @Composable
-    fun a() {
-       
     }
 
 
@@ -203,12 +211,17 @@ a()
         } else {
             android.content.pm.ActivityInfo.SCREEN_ORIENTATION_PORTRAIT
         }
+
+        if (currentRotation == android.view.Surface.ROTATION_0) {
+            isF.value = true
+        } else {
+            isF.value = false
+        }
     }
 
     fun onQualityButtonClick(view: View) {
         openDialog.value = true
     }
-
 }
 
 data class Channel(val name: String, val url: String)
@@ -284,7 +297,10 @@ fun channelChooser() {
                             .verticalScroll(rememberScrollState())
                             .fillMaxSize()
                     ) {
-                        Text(text = "Select the channel you want to watch", fontFamily = sans_bold)
+                        Text(
+                            text = "Select the channel you want to watch",
+                            fontFamily = sans_bold
+                        )
                         channels.forEach { channel ->
                             Button(
                                 onClick = {
@@ -370,155 +386,7 @@ fun channelChooser() {
     }
 }
 
-@RequiresApi(Build.VERSION_CODES.Q)
-@Composable
-fun QualityPopup(onQualitySelected: (String) -> Unit) {
-    if (openDialog.value) {
-        Box(
-            modifier = Modifier
-                .fillMaxSize()
-                .background(Color.Transparent)
-                .padding(top = 30.dp, bottom = 30.dp, start = 30.dp, end = 30.dp)
-        ) {
-            AlertDialog(
-                modifier = Modifier
-                    .padding(top = 25.dp, bottom = 25.dp, start = 10.dp, end = 10.dp)
-                    .shadow(
-                        elevation = 5.dp,
-                        shape = androidx.compose.foundation.shape.RoundedCornerShape(2.dp),
-                        clip = true,
-                        ambientColor = Color(0xFF000000),
-                        spotColor = Color(0xFFC27E7E),
-                    ),
-                onDismissRequest = { openDialog.value = false },
-                title = { Text(text = "Select Quality", fontFamily = sans_bold) },
-                text = {
-                    Column(
-                        modifier = if (Q.size >= 3) {
-                            Modifier
-                                .verticalScroll(rememberScrollState())
-                                .fillMaxSize()
-                        } else {
-                            Modifier
-                                .wrapContentSize()
-                        }
-                    ) {
-                        Text(
-                            text = "Select the quality you want to watch",
-                            fontFamily = sans_bold
-                        )
-                        Button(
-                            onClick = {
-                                currentQualityUrl.value = currentMPD.value
-                                openDialog.value = false
-                            },
-                            modifier = Modifier
-                                .padding(1.dp)
-                                .padding(
-                                    top = 4.dp,
-                                )
-                                .fillMaxWidth(),
-                            colors = androidx.compose.material3.ButtonDefaults.buttonColors(
-                                containerColor = Color(0xFF1F1F1F),
-                                contentColor = Color.White
-                            ),
-                            shape = androidx.compose.foundation.shape.RoundedCornerShape(15.dp)
-                        ) {
-                            Text(text = "Auto", fontFamily = sans_bold)
-                            if (currentQualityUrl.value == currentMPD.value) {
-                                Icon(
-                                    imageVector = Icons.Default.Settings,
-                                    contentDescription = "Settings",
-                                    tint = Color(0xFF651FFF),
-                                    modifier = Modifier
-                                        .width(30.dp)
-                                        .height(30.dp)
-                                        .padding(start = 10.dp)
-                                )
-                            }
-                        }
-                        Q.reversed().forEach { quality ->
-                            Button(
-                                onClick = {
-                                    currentQualityUrl.value = quality.url
-                                    openDialog.value = false
-                                },
 
-                                modifier = Modifier
-                                    .padding(1.dp)
-                                    .padding(
-                                        top = 4.dp,
-                                    )
-                                    .fillMaxWidth(),
-                                colors = androidx.compose.material3.ButtonDefaults.buttonColors(
-                                    containerColor = Color(0xFF1F1F1F),
-                                    contentColor = Color.White
-                                ),
-                                shape = androidx.compose.foundation.shape.RoundedCornerShape(15.dp)
-                            ) {
-                                Text(text = quality.name, fontFamily = sans_bold)
-                                if (quality.url == currentQualityUrl.value) {
-                                    Icon(
-                                        imageVector = Icons.Default.Settings,
-                                        contentDescription = "Settings",
-                                        tint = Color(0xFF651FFF),
-                                        modifier = Modifier
-                                            .width(30.dp)
-                                            .height(30.dp)
-                                            .padding(start = 10.dp)
-                                    )
-                                }
-                            }
-                        }
-                    }
-                },
-                confirmButton = {
-                    Button(
-                        onClick = { openDialog.value = false },
-                        modifier = Modifier
-                            .padding(0.dp)
-                            .padding(
-                                top = 0.dp,
-                            )
-                            .clip(androidx.compose.foundation.shape.RoundedCornerShape(0.dp))
-                            .shadow(
-                                elevation = 0.dp,
-                                shape = androidx.compose.foundation.shape.RoundedCornerShape(0.dp)
-                            ),
-                        shape = androidx.compose.foundation.shape.RoundedCornerShape(13.dp),
-                        colors = androidx.compose.material3.ButtonDefaults.buttonColors(
-                            containerColor = Color(0xFFF50057),
-                            contentColor = Color.White
-                        )
-                    ) {
-                        Text(
-                            text = "Confirm",
-                            fontFamily = sans_bold
-                        )
-                    }
-                },
-                dismissButton = {
-                    Button(
-                        onClick = { openDialog.value = false },
-                        modifier = Modifier
-                            .padding(0.dp)
-                            .padding(
-                                top = 0.dp,
-                            ),
-                        shape = androidx.compose.foundation.shape.RoundedCornerShape(13.dp),
-                        colors = androidx.compose.material3.ButtonDefaults.buttonColors(
-                            containerColor = Color(0xFF651FFF),
-                            contentColor = Color.White
-                        )
-                    ) {
-                        Text(text = "Cancel", fontFamily = sans_bold)
-                    }
-                },
-                containerColor = Color(0xC4B5B2BB),
-            )
-        }
-    }
-}
 
 val Q = mutableListOf<Quality>()
 
@@ -539,7 +407,7 @@ fun ExoPlayerExample() {
         if (Q.size == 0) {
             m3u8ToQualities(
                 currentMPD.value,
-                Q
+
             )
         }
 
@@ -658,29 +526,7 @@ fun ExoPlayerExample() {
 }
 
 
-fun getMPD() {
-    val client = okhttp3.OkHttpClient()
-    val request = okhttp3.Request.Builder()
-        .url("https://live.csa.codes/api/drm?id=962")
-        .build()
 
-    client.newCall(request).enqueue(
-        object : okhttp3.Callback {
-            override fun onFailure(call: okhttp3.Call, e: java.io.IOException) {
-                println("failed to get mpd")
-            }
-
-            override fun onResponse(call: okhttp3.Call, response: okhttp3.Response) {
-                val body = response.body?.string()
-                if (body != null) {
-                    val json = org.json.JSONObject(body)
-                    val mpd = json.getString("mpd")
-                    println("mpd: $mpd")
-                }
-            }
-        }
-    )
-}
 
 var showStartLogo by mutableStateOf(true)
 
@@ -743,7 +589,7 @@ fun StartLogo() {
 
 data class Quality(val name: String, val url: String)
 
-fun m3u8ToQualities(m3u8_url: String, q: MutableList<Quality>) {
+fun m3u8ToQualities(m3u8_url: String) {
     val client = okhttp3.OkHttpClient()
     val request = okhttp3.Request.Builder()
         .url(m3u8_url)
@@ -764,13 +610,14 @@ fun m3u8ToQualities(m3u8_url: String, q: MutableList<Quality>) {
                             val name = line.split("RESOLUTION=")[1].split(",")[0]
                             val url = lines[lines.indexOf(line) + 1]
                             if (!url.contains("#EXT-X") && url.contains(".m3u8")) {
-                                q.add(Quality(name, m3u8_url.split("index.m3u8")[0] + url))
+                                println("Quality: $name, ${m3u8_url.split("index.m3u8")[0] + url}")
+                                //q.add(Quality(name, m3u8_url.split("index.m3u8")[0] + url))
                             }
                         }
                     }
                 }
 
-                println("XQualities: $q")
+                //println("XQualities: $q")
             }
         }
     )

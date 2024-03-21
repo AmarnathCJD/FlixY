@@ -21,6 +21,7 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
@@ -49,10 +50,7 @@ import androidx.compose.material3.BottomAppBar
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
-import androidx.compose.material3.DropdownMenu
-import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.MenuDefaults
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
@@ -80,6 +78,7 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.util.lerp
@@ -100,6 +99,9 @@ import okhttp3.Request
 import okhttp3.Response
 import java.io.IOException
 import kotlin.math.absoluteValue
+import com.example.vflix.api.FeaturedItem as featuredItem
+import com.example.vflix.api.FeaturedItems as featuredItems
+import com.example.vflix.api.GatherFeaturedItems as gatherFeaturedItems
 
 data class PrevNav(
     var prevPage: String,
@@ -111,41 +113,11 @@ data class PrevNav(
 )
 
 var prevPageHistory = mutableListOf<PrevNav>()
-
-var randomGenres = arrayOf(
-    "Action",
-    "Adventure",
-    "Animation",
-    "Biography",
-    "Comedy",
-    "Crime",
-    "Documentary",
-    "Drama",
-    "Family",
-    "Fantasy",
-    "Film-Noir",
-    "Game-Show",
-    "History",
-    "Horror",
-    "Music",
-    "Musical",
-    "Mystery",
-    "News",
-    "Reality-TV",
-    "Romance",
-    "Sci-Fi",
-    "Sport",
-    "Talk-Show",
-    "Thriller",
-    "War",
-    "Western"
-)
-
-
 var clickedName = ""
 var clickedID = ""
 var mediaType = ""
-var titles = mutableStateOf(emptyList<TmdbTitleMin>())
+
+
 
 @Composable
 fun EnterAnimation(content: @Composable () -> Unit) {
@@ -169,24 +141,21 @@ fun EnterAnimation(content: @Composable () -> Unit) {
 @OptIn(ExperimentalFoundationApi::class, ExperimentalMaterial3Api::class)
 @Composable
 fun HomePage(navController: NavHostController) {
+    val context = LocalContext.current
+    println("HOME PAGE: ${context.filesDir}")
     Scaffold(
         bottomBar = { BottomBar(navController = navController) },
         topBar = { TopBar(navController = navController) },
     ) { innerPadding ->
-        //println("Content padding: $innerPadding")
-        var configuration = LocalConfiguration.current
+        val configuration = LocalConfiguration.current
 
         LaunchedEffect(Unit) {
-            if (titles.value.isNullOrEmpty()) {
-                fetchMovies(titles)
-            }
+            gatherFeaturedItems(featuredItems, context)
         }
 
         val gradientColors = GetRandGradient()
 
-
-        val pagerState = rememberPagerState(initialPage = 0, initialPageOffsetFraction = 0.0f,
-            )
+        val pagerState = rememberPagerState(initialPage = 0, initialPageOffsetFraction = 0.0f)
         val fling =
             PagerDefaults.flingBehavior(
                 state = pagerState,
@@ -198,10 +167,6 @@ fun HomePage(navController: NavHostController) {
                 )
             )
 
-        var featuredItems = emptyList<TmdbTitleMin>()
-        if (!titles.value.isNullOrEmpty()) {
-            featuredItems = titles.value.take(15).shuffled()
-        }
 
         Column(
             modifier =
@@ -242,7 +207,7 @@ fun HomePage(navController: NavHostController) {
                     ) { page ->
                         val showShimmer = remember { mutableStateOf(true) }
                         val showSpinner = remember { mutableStateOf(false) }
-                        showSpinner.value = (featuredItems.getOrNull(page)?.poster ?: "") == ""
+                        showSpinner.value = (featuredItems.value.isEmpty() || featuredItems.value.size < 15)
 
                         if (!showSpinner.value) {
                             Card(
@@ -296,8 +261,69 @@ fun HomePage(navController: NavHostController) {
 
                             ) {
                                 Box(
-                                    modifier = Modifier, contentAlignment = Alignment.Center
+                                    modifier = Modifier.padding(0.dp)
+                                    , contentAlignment = Alignment.Center
                                 ) {
+                                    val quality = featuredItems.value.getOrNull(page)?.quality ?: "N/A"
+                                    if (quality != "Unknown") {
+                                        Row(
+                                            modifier = Modifier
+                                                .zIndex(6f)
+                                                .padding(
+                                                    top = 0.dp,
+                                                    bottom = 478.dp,
+                                                    end = 240.dp,
+                                                )
+                                                .width(
+                                                    100.dp
+                                                ),
+                                            verticalAlignment = Alignment.Top,
+                                            horizontalArrangement = Arrangement.Start
+                                        ) {
+                                            Button(
+                                                onClick = { /*TODO*/ },
+                                                modifier = Modifier
+                                                    .background(
+                                                        Color.Transparent
+                                                    )
+                                                    .clip(
+                                                        RoundedCornerShape(
+                                                            5.dp
+                                                        )
+                                                    )
+                                                    .padding(
+                                                        top = 0.dp,
+                                                        start = 0.dp,
+                                                    )
+                                                    .width(
+                                                        30.dp
+                                                    )
+                                                    .height(
+                                                        30.dp
+                                                    ),
+                                                contentPadding = PaddingValues(0.dp),
+
+                                                shape = RoundedCornerShape(4.dp),
+                                                colors = ButtonDefaults.buttonColors(
+                                                    containerColor = Color.White,
+                                                    contentColor = Color.Black
+                                                ),
+                                                border = BorderStroke(
+                                                    width = 0.dp,
+                                                    color = Color.White
+                                                ),
+                                            ) {
+                                                Text(
+                                                    text = quality,
+                                                    fontSize = 10.sp,
+                                                    fontFamily = sans_bold,
+                                                    modifier = Modifier
+                                                        .zIndex(2f),
+                                                    textAlign = TextAlign.Center
+                                                )
+                                            }
+                                        }
+                                    }
                                     Row(
                                         modifier = Modifier
                                             .zIndex(6f)
@@ -446,9 +472,10 @@ fun HomePage(navController: NavHostController) {
                                         model =
                                         ImageRequest.Builder(LocalContext.current)
                                             .data(
-                                                "https://image.tmdb.org/t/p/w500" + featuredItems.getOrNull(
+                                                featuredItems.value.getOrNull(
                                                     page
-                                                )?.poster
+                                                )?.poster?.replace("184x275", "500x750")
+                                                    ?: ""
                                             )
                                             .crossfade(true)
                                             .build(),
@@ -467,15 +494,13 @@ fun HomePage(navController: NavHostController) {
                                             )
                                             .clickable {
                                                 clickedName =
-                                                    featuredItems.getOrNull(page)?.title
-                                                        ?: featuredItems.getOrNull(
-                                                            page
-                                                        )?.name ?: "-"
+                                                    featuredItems.value.getOrNull(page)?.title
+                                                        ?: "-"
                                                 clickedID =
-                                                    featuredItems.getOrNull(page)?.id
+                                                    featuredItems.value.getOrNull(page)?.href
                                                         ?: "tt4154796"
                                                 mediaType =
-                                                    featuredItems.getOrNull(page)?.media_type
+                                                    featuredItems.value.getOrNull(page)?.category
                                                         ?: "movie"
                                                 prevPageHistory.add(
                                                     PrevNav(
@@ -500,7 +525,7 @@ fun HomePage(navController: NavHostController) {
                 LaunchedEffect(Unit) {
                     while (true) {
                         delay(4000)
-                        if (featuredItems.isEmpty()) continue
+                        if (featuredItems.value.isEmpty()) continue
                         val nextPage = pagerState.currentPage + 1
                         if (nextPage >= 15) {
                             pagerState.animateScrollToPage(0) // Go back to the first page
@@ -518,7 +543,7 @@ fun HomePage(navController: NavHostController) {
                         .padding(horizontal = 8.dp, vertical = 5.dp),
                     horizontalArrangement = Arrangement.SpaceBetween
                 ) {
-                    TrendingBar(titles.value, navController)
+                    TrendingBar(featuredItems.value, navController)
                     // TODO: nested LazyRow and LazyColumn
                 }
                 Spacer(modifier = Modifier.height(12.dp))
@@ -533,7 +558,7 @@ fun HomePage(navController: NavHostController) {
 fun TopCategoryHome() {
     var expanded by remember { mutableStateOf(false) }
     var selectedCategory by remember { mutableStateOf("Categories") }
-    val categories = randomGenres
+    val categories = null
 
     Row(
         horizontalArrangement = Arrangement.SpaceBetween,
@@ -605,20 +630,20 @@ fun TopCategoryHome() {
                     .clickable { expanded = true }
                     .padding(horizontal = 10.dp, vertical = 5.dp)
             )
-            DropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
-                categories.forEach { category ->
-                    DropdownMenuItem(
-                        text = { Text(text = category) },
-                        onClick = {
-                            selectedCategory = category
-                            expanded = false
-                        },
-                        colors = MenuDefaults.itemColors(
+            //DropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
+              //  categories.forEach { category ->
+                //    DropdownMenuItem(
+                  //      text = { Text(text = category) },
+                    //    onClick = {
+                      ///      selectedCategory = category
+                         //   expanded = false
+                       // },
+                        //c/olors = MenuDefaults.itemColors(
 // color Set
-                        )
-                    )
-                }
-            }
+                        //)
+                    //)
+               // }
+           // }
         }
     }
 }
@@ -693,10 +718,10 @@ fun fetchMovies(movies: MutableState<List<TmdbTitleMin>>) {
 @RequiresApi(Build.VERSION_CODES.Q)
 @Composable
 fun TrendingBar(
-    items: List<TmdbTitleMin>,
+    items: List<featuredItem>,
     navController: NavHostController
 ) {
-    if (!items.isNullOrEmpty()) {
+    if (items.isNotEmpty()) {
         Column {
             Row {
                 Text(
@@ -738,7 +763,7 @@ fun TrendingBar(
                                 AsyncImage(
                                     model =
                                     ImageRequest.Builder(LocalContext.current)
-                                        .data("https://image.tmdb.org/t/p/w342" + item.poster)
+                                        .data(item.poster)
                                         .crossfade(true)
                                         .build(),
                                     contentDescription = "Movie Poster",
@@ -753,13 +778,9 @@ fun TrendingBar(
                                             )
                                         )
                                         .clickable {
-                                            if (!item.title.isNullOrEmpty()) {
-                                                clickedName = item.title
-                                            } else {
-                                                clickedName = item.name
-                                            }
-                                            clickedID = item.id
-                                            mediaType = item.media_type
+                                            clickedName = item.title
+                                            clickedID = item.href
+                                            mediaType = item.category
                                             prevPageHistory.add(
                                                 PrevNav(
                                                     prevPage = "homePage",
@@ -783,21 +804,21 @@ fun TrendingBar(
             }
 
 
-            randomGenres = randomGenres.toList().shuffled().take(10).toTypedArray()
-            val data = remember { mutableStateOf<List<Genre>>(emptyList()) }
-            LaunchedEffect(Unit) {
-                fetchGenres(randomGenres, data)
-            }
-            ContinueWatchingBar(nav = navController)
-            if (!data.value.isNullOrEmpty() && !data.value[0].results.isNullOrEmpty()) {
-                //LazyColumn() {
-                    for (genre in data.value) {
-                        if (!genre.genre.isNullOrEmpty() && !genre.results.isNullOrEmpty())
-                        TitleGenreBar(genre.genre, navController, genre.results)
-                    }
-            } else {
-                println("EMPTY GENRE")
-            }
+          //  randomGenres = randomGenres.toList().shuffled().take(10).toTypedArray()
+            //val data = remember { mutableStateOf<List<Genre>>(emptyList()) }
+            //LaunchedEffect(Unit) {
+              //  fetchGenres(randomGenres, data)
+            //}
+            //ContinueWatchingBar(nav = navController)
+            //if (!data.value.isNullOrEmpty() && !data.value[0].results.isNullOrEmpty()) {
+              //  //LazyColumn() {
+                //l    for (genre in data.value) {
+                   //     if (!genre.genre.isNullOrEmpty() && !genre.results.isNullOrEmpty())
+                     //   TitleGenreBar(genre.genre, navController, genre.results)
+                    //}
+            //} else {
+              //  println("EMPTY GENRE")
+            //}
         }
     }
 }
@@ -948,7 +969,7 @@ fun TitleGenreBar(
                                 model =
                                 ImageRequest.Builder(LocalContext.current)
                                     .data(
-                                        (item.poster.split(".jpg")[0] + "QL75_UX380_CR0,0,380,562.jpg")
+                                        (item.poster)
                                             ?: ""
                                     )
                                     .crossfade(true)
@@ -1006,9 +1027,9 @@ fun fetchGenres(genres: Array<String>, data: MutableState<List<Genre>>): Int {
                 }
 
                 override fun onResponse(call: Call, response: Response) {
-                    val json = response.body?.string()
-                    val movies = Gson().fromJson(json, Array<Genre>::class.java).toList()
-                    data.value = movies.toMutableList()
+                    //val json = response.body?.string()
+                    //val movies = Gson().fromJson(json, Array<Genre>::class.java).toList()
+                    //data.value = movies.toMutableList()
                 }
             }
         )

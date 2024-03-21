@@ -1,7 +1,6 @@
 package com.example.vflix.auth
 
 import com.example.vflix.TmdbTitleMin
-import com.example.vflix.appUserId
 import com.google.gson.Gson
 import kotlinx.coroutines.launch
 import okhttp3.Call
@@ -53,7 +52,7 @@ class Auth {
 
 class DB() {
     private val client = OkHttpClient()
-    private val url = "https://jsonblob.com/api/jsonBlob/$appUserId"
+    private val url = "https://jsonblob.com/api/jsonBlob/"
 
     fun put() {
         this.getsync()
