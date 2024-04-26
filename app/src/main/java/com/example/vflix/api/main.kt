@@ -1,3 +1,3 @@
 package com.example.vflix.api
 
-const val BACKEND_URL = "https://91b8a8003dd1969305e6d82ae4b8507d.serveo.net"
+const val BACKEND_URL = "https://1fb3e6a9574c910f300b6940df41a7b0.serveo.net"

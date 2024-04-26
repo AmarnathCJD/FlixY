@@ -86,6 +86,16 @@ class NEpisode {
     val episode_id: String = ""
 }
 
+class NSubtitle {
+    @com.google.gson.annotations.SerializedName("file")
+    var uri: String = ""
+
+    @com.google.gson.annotations.SerializedName("label")
+    var lang: String = ""
+
+    var default: Boolean = false
+}
+
 fun urlquote(s: String): String {
     return s.replace(" ", "%20")
 }
@@ -129,14 +139,15 @@ fun GatherNTInSync(
     m: MutableState<NT?>,
     se: MutableState<Pair<Int, Int>>,
     ActiveM3U8: MutableState<String>,
+    Subs: MutableState<List<NSubtitle>>,
     showLoading: MutableState<Boolean>,
     showNoSource: MutableState<Boolean>
 ) {
     Thread {
         println("Gathering NT: $BACKEND_URL/api/info?query=${urlquote(href)}")
-        val client = okhttp3.OkHttpClient()
+        val client = OkHttpClient()
         val request =
-            okhttp3.Request.Builder().url("$BACKEND_URL/api/info?id=${urlquote(href)}").build()
+            Request.Builder().url("$BACKEND_URL/api/info?id=${urlquote(href)}").build()
         val response = client.newCall(request).execute()
         val json = response.body?.string()
         val items = Gson().fromJson(json, NT::class.java)
@@ -169,7 +180,7 @@ fun GatherNTInSync(
         if (titleType == "tv") {
             println("Gathering seasons for $titleId: $BACKEND_URL/api/seasons?id=${titleId}")
             val seasonRequest =
-                okhttp3.Request.Builder().url("$BACKEND_URL/api/seasons?id=${titleId}").build()
+                Request.Builder().url("$BACKEND_URL/api/seasons?id=${titleId}").build()
             val seasonResponse = client.newCall(seasonRequest).execute()
             val seasonJson = seasonResponse.body?.string()
             val seasons =
@@ -177,11 +188,11 @@ fun GatherNTInSync(
             NTObject.seasons = seasons
             if (NTObject.seasons.isNotEmpty()) {
                 se.value = Pair(NTObject.seasons[0].season_id.toInt(), 0)
-                GatherEpisodes(m, se, ActiveM3U8, showLoading, showNoSource)
+                GatherEpisodes(m, se, ActiveM3U8, Subs, showLoading, showNoSource)
             }
         } else {
             se.value = Pair(titleId.toInt(), titleId.toInt())
-            GatherEmbedURL(m, se, ActiveM3U8, showLoading, showNoSource)
+            GatherEmbedURL(m, se, ActiveM3U8, Subs, showLoading, showNoSource)
         }
     }.start()
 }
@@ -190,15 +201,16 @@ fun GatherEpisodes(
     a: MutableState<NT?>,
     se: MutableState<Pair<Int, Int>>,
     ActiveM3U8: MutableState<String>,
+    Subs: MutableState<List<NSubtitle>>,
     showLoading: MutableState<Boolean>,
     showNoSource: MutableState<Boolean>,
     showFetchEmbed: Boolean = true
 ) {
     println("Gathering episodes for ${a.value?.id}: $BACKEND_URL/api/episodes?id=${se.value.first}")
     Thread {
-        val client = okhttp3.OkHttpClient()
+        val client = OkHttpClient()
         val request =
-            okhttp3.Request.Builder().url("$BACKEND_URL/api/episodes?id=${se.value.first}").build()
+            Request.Builder().url("$BACKEND_URL/api/episodes?id=${se.value.first}").build()
         val response = client.newCall(request).execute()
         val json = response.body?.string()
         val items = Gson().fromJson(json, Array<NEpisode>::class.java).toList()
@@ -209,7 +221,7 @@ fun GatherEpisodes(
                 se.value = Pair(se.value.first, a.value?.episodes?.get(0)?.episode_id?.toInt()!!)
                 println("Active episode: ${se.value.second}")
                 if (showFetchEmbed) {
-                    GatherEmbedURL(a, se, ActiveM3U8, showLoading, showNoSource)
+                    GatherEmbedURL(a, se, ActiveM3U8, Subs,showLoading, showNoSource)
                 }
             }
         }
@@ -220,6 +232,7 @@ fun GatherEmbedURL(
     a: MutableState<NT?>,
     se: MutableState<Pair<Int, Int>>,
     ActiveM3U8: MutableState<String>,
+    Subs: MutableState<List<NSubtitle>>,
     showLoading: MutableState<Boolean>,
     showNoSource: MutableState<Boolean>,
     retries: Int = 0
@@ -229,12 +242,12 @@ fun GatherEmbedURL(
             showLoading.value = true
             val MAX_RETRIES = 3
             println("Gathering embed URL: $BACKEND_URL/api/embed?id=${se.value.second}&cat=${a.value?.category}")
-            val client = okhttp3.OkHttpClient().newBuilder()
+            val client = OkHttpClient().newBuilder()
                 .connectTimeout(30, java.util.concurrent.TimeUnit.SECONDS)
                 .readTimeout(30, java.util.concurrent.TimeUnit.SECONDS)
                 .writeTimeout(30, java.util.concurrent.TimeUnit.SECONDS)
                 .build()
-            val request = okhttp3.Request.Builder()
+            val request = Request.Builder()
                 .url("$BACKEND_URL/api/embed?id=${se.value.second}&cat=${a.value?.category}")
                 .build()
             val response = client.newCall(request).execute()
@@ -245,7 +258,7 @@ fun GatherEmbedURL(
                 a.value?.e = items["source_hash"].toString()
 
                 if (a.value?.e != "") {
-                    val req = okhttp3.Request.Builder()
+                    val req = Request.Builder()
                         .url("$BACKEND_URL/${a.value?.e}")
                         .build()
 
@@ -254,14 +267,36 @@ fun GatherEmbedURL(
                     val i = Gson().fromJson(j, Map::class.java)
                     if (i["file"] != null) {
                         ActiveM3U8.value = i["file"].toString()
+                        println("ActiveM3U8: ${ActiveM3U8.value}")
                     }
-                    println("Embed URL: ${ActiveM3U8.value}")
+
+                    if (i["subs"] != null) {
+                        println("Subtitles: ${i["subs"]}")
+                        var subs = mutableListOf<NSubtitle>()
+                        val sub = i["subs"] as List<*>?
+
+                        if (sub != null) {
+                            for (s in sub) {
+                                val subMap = s as Map<*, *>
+                                subs.add(NSubtitle().apply {
+                                    uri = subMap["file"].toString()
+                                    lang = subMap["label"].toString()
+
+                                    if (subMap["default"] != null) {
+                                        default = true
+                                    }
+                                })
+                            }
+                        }
+
+                        Subs.value = subs
+                    }
                 }
             } else {
                 ActiveM3U8.value = ""
                 println("retries: $retries / $MAX_RETRIES, retrying")
                 if (retries < MAX_RETRIES) {
-                    GatherEmbedURL(a, se, ActiveM3U8, showLoading, showNoSource, retries + 1)
+                    GatherEmbedURL(a, se, ActiveM3U8, Subs, showLoading, showNoSource, retries + 1)
                 } else {
                     showNoSource.value = true
                 }
@@ -275,13 +310,14 @@ fun GatherEmbedURL(
 }
 
 fun FetchTrailer(e: String): String {
-    val client = okhttp3.OkHttpClient()
+    val client = OkHttpClient()
     val request = okhttp3.Request.Builder()
-        .url("https://api-server-git-main-roseloverx1-s-team.vercel.app/api/yt?u=${e.replace("embed/", "watch?v=")}").build()
+        .url("$BACKEND_URL/api/trailer?url=${e}").build()
     val response = client.newCall(request).execute()
     val json = response.body?.string()
     val items = Gson().fromJson(json, Map::class.java)
     if (items["url"] != null) {
+        println("Trailer URL: ${items["url"].toString()}")
         return items["url"].toString()
     }
     return ""
@@ -296,8 +332,8 @@ class NTQuality {
 }
 
 fun M3U8QualitiesSync(m3u8_url: String, q: MutableState<List<NTQuality>>) {
-    val client = okhttp3.OkHttpClient()
-    val request = okhttp3.Request.Builder()
+    val client = OkHttpClient()
+    val request = Request.Builder()
         .url(m3u8_url)
         .build()
 
@@ -323,8 +359,8 @@ fun M3U8QualitiesSync(m3u8_url: String, q: MutableState<List<NTQuality>>) {
 }
 
 fun m3u8ToQualities(m3u8_url: String) {
-    val client = okhttp3.OkHttpClient()
-    val request = okhttp3.Request.Builder()
+    val client = OkHttpClient()
+    val request = Request.Builder()
         .url(m3u8_url)
         .build()
 

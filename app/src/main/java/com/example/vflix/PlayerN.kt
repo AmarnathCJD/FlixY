@@ -2,6 +2,7 @@ package com.example.vflix
 
 import android.content.pm.ActivityInfo
 import android.content.res.Configuration
+import android.net.Uri
 import android.os.Build
 import android.view.LayoutInflater
 import android.view.View
@@ -69,8 +70,11 @@ import androidx.compose.ui.viewinterop.AndroidView
 import androidx.compose.ui.window.PopupProperties
 import androidx.compose.ui.zIndex
 import androidx.lifecycle.Lifecycle
+import androidx.media3.common.C
 import androidx.media3.common.MediaItem
+import androidx.media3.common.MediaItem.SubtitleConfiguration
 import androidx.media3.common.MimeTypes
+import androidx.media3.common.Player
 import androidx.media3.exoplayer.ExoPlayer
 import androidx.media3.exoplayer.source.DefaultMediaSourceFactory
 import androidx.media3.exoplayer.trackselection.DefaultTrackSelector
@@ -85,6 +89,7 @@ import com.example.vflix.api.GatherEmbedURL
 import com.example.vflix.api.GatherEpisodes
 import com.example.vflix.api.GatherNTInSync
 import com.example.vflix.api.M3U8QualitiesSync
+import com.example.vflix.api.NSubtitle
 import com.example.vflix.api.NT
 import com.example.vflix.api.NTQuality
 import com.example.vflix.ui.theme.sans_bold
@@ -99,6 +104,7 @@ val isPlaying = mutableStateOf(false)
 val isF = mutableStateOf(false)
 val currentQualityUrl = mutableStateOf("")
 val availQualities = mutableStateOf(listOf<NTQuality>())
+val Subs = mutableStateOf(listOf<NSubtitle>())
 
 
 @RequiresApi(Build.VERSION_CODES.Q)
@@ -136,6 +142,7 @@ fun PlayerN(nav: NavHostController) {
                     activeTitle,
                     activeSE,
                     ActiveM3U8,
+                    Subs,
                     showLoading,
                     showNoSource
                 )
@@ -164,7 +171,14 @@ fun PlayerN(nav: NavHostController) {
         } else {
             LaunchedEffect(Unit) {
                 if (activeTitle.value?.href != clickedID || shouldUpdateM3U8) {
-                    GatherEmbedURL(activeTitle, activeSE, ActiveM3U8, showLoading, showNoSource)
+                    GatherEmbedURL(
+                        activeTitle,
+                        activeSE,
+                        ActiveM3U8,
+                        Subs,
+                        showLoading,
+                        showNoSource
+                    )
                     shouldUpdateM3U8 = false
                 }
             }
@@ -249,11 +263,37 @@ fun PlayerN(nav: NavHostController) {
                     }
                 }
 
+                var mimeType = MimeTypes.APPLICATION_M3U8
+                val subs = mutableListOf<SubtitleConfiguration>()
+
+                if (ActiveM3U8.value.contains("googlevideo.com")) {
+                    mimeType = MimeTypes.APPLICATION_MP4
+                } else {
+                    for (sub in Subs.value) {
+                        val subUri = Uri.parse(sub.uri)
+                        val subMimeType = MimeTypes.TEXT_VTT
+                        val subLang = sub.lang
+                        var selectionFlags = C.SELECTION_FLAG_AUTOSELECT
+                        if (sub.default) {
+                            selectionFlags = C.SELECTION_FLAG_DEFAULT
+                        }
+                        val subConfig = SubtitleConfiguration.Builder(subUri)
+                            .setLabel(subLang)
+                            .setMimeType(subMimeType)
+                            .setLanguage(subLang)
+                            .setSelectionFlags(selectionFlags)
+                            .build()
+
+                        subs.add(subConfig)
+                    }
+                }
+
+
                 val media = MediaItem.Builder()
                     .setUri(ActiveM3U8.value)
-                    .setMimeType(MimeTypes.APPLICATION_M3U8)
+                    .setMimeType(mimeType)
+                    .setSubtitleConfigurations(subs)
                     .build()
-
 
                 if ((player.currentMediaItem?.playbackProperties?.uri.toString() == ActiveM3U8.value)) {
                     //skip
@@ -266,6 +306,25 @@ fun PlayerN(nav: NavHostController) {
                         Thread.sleep(1000)
                     }
                 }
+
+                player.addListener(object : Player.Listener {
+                    override fun onPlaybackStateChanged(state: Int) {
+                        if (state == ExoPlayer.STATE_READY) {
+                            showLoading.value = false
+                            if (currentSeek.value != 0L) {
+                                player.seekTo(currentSeek.value)
+                                currentSeek.value = 0
+                            }
+                        } else if (state == ExoPlayer.STATE_ENDED) {
+                            player.seekTo(0)
+                            player.play()
+                        } else if (state == ExoPlayer.STATE_IDLE) {
+                            player.prepare()
+                        } else if (state == ExoPlayer.STATE_BUFFERING) {
+                            showLoading.value = true
+                        }
+                    }
+                }, )
 
                 //Thread(runnableThreadToCapturePlaybackPositions).start()
 
@@ -474,7 +533,10 @@ fun QualityPopup(onQualitySelected: (String) -> Unit) {
                                     ),
                                     shape = RoundedCornerShape(15.dp)
                                 ) {
-                                    Text(text = quality.quality.split("x")[1] + "p$attr", fontFamily = sans_bold)
+                                    Text(
+                                        text = quality.quality.split("x")[1] + "p$attr",
+                                        fontFamily = sans_bold
+                                    )
                                     if (quality.url == ActiveM3U8.value) {
                                         Icon(
                                             imageVector = Icons.Default.PlayArrow,
@@ -534,6 +596,7 @@ fun QualityPopup(onQualitySelected: (String) -> Unit) {
                     }
                 },
                 containerColor = Color(0xC4101314),
+                shape = RoundedCornerShape(6.dp)
             )
         }
     }
@@ -569,7 +632,7 @@ fun PlayTrailerButton(player: ExoPlayer) {
                     vertical = 4.dp,
                     horizontal = 5.dp
                 )
-                .clip(RoundedCornerShape(12.dp))
+                .clip(RoundedCornerShape(5.dp))
                 .background(Color(0xFF1F1F1F))
                 .clickable {
                     player.stop()
@@ -577,7 +640,6 @@ fun PlayTrailerButton(player: ExoPlayer) {
                         showLoading.value = true
                         val trailer = FetchTrailer(activeTitle.value?.trailer ?: "")
                         if (trailer.isNotEmpty()) {
-                            println("Trailer M3U8: $trailer")
                             ActiveM3U8.value = trailer
                             showLoading.value = false
                         }
@@ -585,7 +647,7 @@ fun PlayTrailerButton(player: ExoPlayer) {
                 }
         ) {
             Text(
-                text = "Play Trailer",
+                text = "Play Trailer ~ ${activeTitle.value?.title}",
                 fontFamily = sans_bold,
                 color = Color.White,
                 fontSize = 14.sp,
@@ -599,7 +661,11 @@ fun PlayTrailerButton(player: ExoPlayer) {
             Icon(
                 imageVector = Icons.Filled.PlayArrow,
                 contentDescription = "Globe Icon",
-                tint = Color.Yellow,
+                tint = if (ActiveM3U8.value.contains("googlevideo.com")) {
+                    Color.Red
+                } else {
+                    Color.Yellow
+                },
                 modifier = Modifier.padding(
                     horizontal = 8.dp,
                     vertical = 4.dp
@@ -608,6 +674,7 @@ fun PlayTrailerButton(player: ExoPlayer) {
         }
     }
 }
+
 
 @RequiresApi(Build.VERSION_CODES.Q)
 @Composable
@@ -997,6 +1064,7 @@ fun SetupSeasonAndEpisodeSelector(player: ExoPlayer) {
                                     activeTitle,
                                     activeSE,
                                     ActiveM3U8,
+                                    Subs,
                                     showLoading,
                                     showNoSource,
                                     false
@@ -1091,7 +1159,14 @@ fun EpisodeItem(item: com.example.vflix.api.NEpisode, player: ExoPlayer) {
                     currentSeek.value = 0
                     showLoading.value = true
                     activeSE.value = Pair(activeSE.value.first, item.episode_id.toInt())
-                    GatherEmbedURL(activeTitle, activeSE, ActiveM3U8, showLoading, showNoSource)
+                    GatherEmbedURL(
+                        activeTitle,
+                        activeSE,
+                        ActiveM3U8,
+                        Subs,
+                        showLoading,
+                        showNoSource
+                    )
                 }
         ) {
             Text(
