@@ -288,24 +288,23 @@ fun PlayerN(nav: NavHostController) {
                     }
                 }
 
-
                 val media = MediaItem.Builder()
                     .setUri(ActiveM3U8.value)
                     .setMimeType(mimeType)
                     .setSubtitleConfigurations(subs)
                     .build()
 
-                if ((player.currentMediaItem?.playbackProperties?.uri.toString() == ActiveM3U8.value)) {
+                if ((player.currentMediaItem?.localConfiguration?.uri.toString() == ActiveM3U8.value)) {
                     //skip
                 } else {
                     player.setMediaItem(media)
                 }
 
-                val runnableThreadToCapturePlaybackPositions = Runnable {
-                    while (true) {
-                        Thread.sleep(1000)
-                    }
-                }
+//                val runnableThreadToCapturePlaybackPositions = Runnable {
+//                    while (true) {
+//                        Thread.sleep(1000)
+//                    }
+//                }
 
                 player.addListener(object : Player.Listener {
                     override fun onPlaybackStateChanged(state: Int) {
@@ -398,7 +397,7 @@ fun PlayerN(nav: NavHostController) {
                     Spacer(modifier = Modifier.height(15.dp))
                     PlayTrailerButton(player)
                     Spacer(modifier = Modifier.height(15.dp))
-                    TitleMedata()
+                    TitleMetadata()
                     SetupSeasonAndEpisodeSelector(player)
                     Divider(
                         color = Color.DarkGray,
@@ -602,8 +601,6 @@ fun QualityPopup(onQualitySelected: (String) -> Unit) {
     }
 }
 
-val trailerM3U8 = mutableStateOf("")
-
 @RequiresApi(Build.VERSION_CODES.Q)
 @Composable
 fun PlayTrailerButton(player: ExoPlayer) {
@@ -678,8 +675,8 @@ fun PlayTrailerButton(player: ExoPlayer) {
 
 @RequiresApi(Build.VERSION_CODES.Q)
 @Composable
-fun TitleMedata() {
-    val ACT = activeTitle.value
+fun TitleMetadata() {
+    val nt = activeTitle.value
 
     Column(
         modifier = Modifier
@@ -698,7 +695,7 @@ fun TitleMedata() {
             AsyncImage(
                 model =
                 ImageRequest.Builder(LocalContext.current)
-                    .data(ACT?.image)
+                    .data(nt?.image)
                     .crossfade(true)
                     .build(),
                 contentDescription = "Movie Poster",
@@ -723,7 +720,7 @@ fun TitleMedata() {
             Spacer(modifier = Modifier.width(20.dp))
             Column {
                 Text(
-                    text = ACT?.title ?: "",
+                    text = nt?.title ?: "",
                     fontFamily = sans_bold,
                     color = Color.White,
                     fontSize = 20.sp
@@ -731,7 +728,7 @@ fun TitleMedata() {
                 Row {
                     // if (imdbTT.year.end != "" && imdbTT.year.end != imdbTT.year.year && imdbTT.year.end != "0") {
                     Text(
-                        text = ACT?.release ?: "",
+                        text = nt?.release ?: "",
                         fontFamily = sans_bold,
                         color = Color.Gray,
                         fontSize = 12.sp
@@ -757,7 +754,7 @@ fun TitleMedata() {
                     )
                     {
                         Text(
-                            text = ACT?.quality ?: "",
+                            text = nt?.quality ?: "",
                             fontFamily = sans_bold,
                             color = Color.Gray,
                             fontSize = 12.sp,
@@ -767,7 +764,7 @@ fun TitleMedata() {
 
                 }
                 Text(
-                    text = ACT?.genres ?: "",
+                    text = nt?.genres ?: "",
                     fontFamily = sans_bold,
                     color = Color.LightGray,
                     fontSize = 10.sp
@@ -778,7 +775,7 @@ fun TitleMedata() {
                 )
                 {
                     Text(
-                        text = "${ACT?.imdb_rating ?: "0"}/10",
+                        text = "${nt?.imdb_rating ?: "0"}/10",
                         fontFamily = sans_bold,
                         color = Color.Gray,
                         fontSize = 12.sp,
@@ -787,11 +784,11 @@ fun TitleMedata() {
                     )
 
                     for (i in 1..5) {
-                        if (ACT != null) {
-                            if (ACT.imdb_rating == "N/A") {
-                                ACT.imdb_rating = "0"
+                        if (nt != null) {
+                            if (nt.imdb_rating == "N/A") {
+                                nt.imdb_rating = "0"
                             }
-                            if (i <= ((ACT.imdb_rating.toFloat().div(2)).toInt() ?: 0)) {
+                            if (i <= ((nt.imdb_rating.toFloat().div(2)).toInt())) {
                                 Image(
                                     painter = painterResource(id = R.drawable.baseline_star),
                                     contentDescription = "Rating Star",
@@ -813,9 +810,9 @@ fun TitleMedata() {
                         }
                     }
                 }
-                if (ACT != null) {
+                if (nt != null) {
                     Text(
-                        text = ls(ACT.description, 400),
+                        text = ls(nt.description, 400),
                         fontFamily = sans_bold,
                         color = Color.Gray,
                         fontSize = 11.sp,
@@ -823,7 +820,7 @@ fun TitleMedata() {
                             .padding(top = 4.dp)
                     )
                 }
-                val stars = ACT?.casts ?: ""
+                val stars = nt?.casts ?: ""
                 if (stars.length > 55) {
                     Text(
                         text = "Starring: ${stars.substring(0, 55)}...",
@@ -1235,7 +1232,7 @@ fun SetupSimilar(
                 val pageEndIndex = (pageIndex + 1) * pageSize - 1
 
                 if (index in pageStartIndex..pageEndIndex) {
-                    if ((item.poster.length ?: 0) > 0) {
+                    if ((item.poster.length) > 0) {
                         Row(
                             horizontalArrangement = Arrangement.SpaceEvenly,
                             modifier = Modifier
@@ -1243,8 +1240,7 @@ fun SetupSimilar(
                                 .padding(2.dp)
                         ) {
                             val showShimmer = remember { mutableStateOf(true) }
-                            Row(
-                            ) {
+                            Row {
                                 AsyncImage(
                                     model =
                                     ImageRequest.Builder(LocalContext.current)
