@@ -320,7 +320,8 @@ fun PlayerN(nav: NavHostController) {
                         } else if (state == ExoPlayer.STATE_IDLE) {
                             player.prepare()
                         } else if (state == ExoPlayer.STATE_BUFFERING) {
-                            showLoading.value = true
+                            //showLoading.value = true
+                            // Too buggy
                         }
                     }
                 }, )
