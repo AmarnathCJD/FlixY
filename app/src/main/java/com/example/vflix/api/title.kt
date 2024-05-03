@@ -12,6 +12,8 @@ import java.io.IOException
 
 var FeaturedItems = mutableStateOf(emptyList<FeaturedItem>())
 
+var IsServerOffline = mutableStateOf(false)
+
 class FeaturedItem(
     @com.google.gson.annotations.SerializedName("title") val title: String,
     @com.google.gson.annotations.SerializedName("href") val href: String,
@@ -19,6 +21,7 @@ class FeaturedItem(
     @com.google.gson.annotations.SerializedName("poster") val poster: String,
     @com.google.gson.annotations.SerializedName("quality") val quality: String,
 )
+
 class NT {
     @com.google.gson.annotations.SerializedName("id")
     var id: String = ""
@@ -100,10 +103,14 @@ fun urlquote(s: String): String {
     return s.replace(" ", "%20")
 }
 
-fun GatherFeaturedItems(featuredItems: MutableState<List<FeaturedItem>>, context: android.content.Context) {
+fun GatherFeaturedItems(
+    featuredItems: MutableState<List<FeaturedItem>>,
+    context: android.content.Context,
+    isInit: Boolean
+) {
     Thread {
         retrieveHomePageItemFromInternalStorage(context)
-        if (FeaturedItems.value.isNotEmpty()) {
+        if (FeaturedItems.value.isNotEmpty() && isInit) {
             featuredItems.value = FeaturedItems.value
             // wait 10 seconds before fetching again
             Thread.sleep(10000)
@@ -122,11 +129,21 @@ fun GatherFeaturedItems(featuredItems: MutableState<List<FeaturedItem>>, context
                     override fun onFailure(call: Call, e: IOException) {}
                     override fun onResponse(call: Call, response: Response) {
                         val json = response.body?.string()
-                        var items = Gson().fromJson(json, Array<FeaturedItem>::class.java).toList()
-                        items = items.shuffled()
-                        if (items.isNotEmpty()) {
-                            FeaturedItems.value = items
-                            saveHomePageItemToInternalStorage(context)
+                        var items: List<FeaturedItem>? = null;
+                        try {
+                            items =
+                                Gson().fromJson(json, Array<FeaturedItem>::class.java).toList()
+                        } catch (_: Exception) {
+                            IsServerOffline.value = true
+                        }
+                        if (items != null) {
+                            items = items.shuffled()
+                        }
+                        if (items != null) {
+                            if (items.isNotEmpty()) {
+                                FeaturedItems.value = items
+                                saveHomePageItemToInternalStorage(context)
+                            }
                         }
                     }
                 }
@@ -144,11 +161,13 @@ fun GatherNTInSync(
     showNoSource: MutableState<Boolean>
 ) {
     Thread {
-        println("Gathering NT: $BACKEND_URL/api/info?query=${urlquote(href)}")
+        println("Gathering NT: $BACKEND_URL/api/info?id=${urlquote(href)}")
         val client = OkHttpClient()
         val request =
             Request.Builder().url("$BACKEND_URL/api/info?id=${urlquote(href)}").build()
         val response = client.newCall(request).execute()
+
+        println("Gathering NT: $BACKEND_URL/api/info?id=${urlquote(href)}")
         val json = response.body?.string()
         val items = Gson().fromJson(json, NT::class.java)
 
@@ -221,7 +240,7 @@ fun GatherEpisodes(
                 se.value = Pair(se.value.first, a.value?.episodes?.get(0)?.episode_id?.toInt()!!)
                 println("Active episode: ${se.value.second}")
                 if (showFetchEmbed) {
-                    GatherEmbedURL(a, se, ActiveM3U8, Subs,showLoading, showNoSource)
+                    GatherEmbedURL(a, se, ActiveM3U8, Subs, showLoading, showNoSource)
                 }
             }
         }

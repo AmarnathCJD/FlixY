@@ -83,7 +83,7 @@ fun LoginForm(nav: NavHostController) {
             modifier = Modifier
                 .fillMaxSize()
                 .paint(
-                    painter = painterResource(id = R.drawable.max_quilt_0),
+                    painter = painterResource(id = R.drawable.logo),
                     contentScale = ContentScale.Crop,
                 )
                 .padding(16.dp),

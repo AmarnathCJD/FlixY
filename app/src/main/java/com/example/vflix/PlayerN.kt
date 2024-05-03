@@ -64,6 +64,7 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.viewinterop.AndroidView
@@ -106,6 +107,129 @@ val currentQualityUrl = mutableStateOf("")
 val availQualities = mutableStateOf(listOf<NTQuality>())
 val Subs = mutableStateOf(listOf<NSubtitle>())
 
+@RequiresApi(Build.VERSION_CODES.Q)
+@androidx.annotation.OptIn(androidx.media3.common.util.UnstableApi::class)
+@Composable
+@Preview
+fun vid() {
+    val context = LocalContext.current
+    val trackSelector = DefaultTrackSelector(context)
+
+    val player = remember {
+        ExoPlayer.Builder(context).setTrackSelector(trackSelector)
+            .setMediaSourceFactory(
+                DefaultMediaSourceFactory(context)
+            )
+            .build()
+            .apply {
+                prepare()
+            }
+    }
+    Column(
+        modifier = Modifier
+            .fillMaxHeight()
+            .fillMaxWidth()
+            .background(Color.Black)
+
+    ) {
+        val media = MediaItem.Builder()
+            .setUri(
+                "http://45.11.57.74:80/live/73663/86525/150479.m3u8?token=GhMNBEZcR1gRXlVcUgdQUQADDFZRXAACUwICAgYIDlYHVFRVV1dcV1VEGBoXEhZRBVtrXgVGAgFXVgMDChQUFhJUFzpcUEdYEVIDDFZTVhZIFEBeDAEaClJKFURaXBRZQwBQUAcWSUBWHkBdFggFWDtSUUEIB10SWAhCWF8UFAwPbgEAWFULBhFcFglGSkZdF0YWDQ8RVFxORFVdR0pXFwQTXwtAWAlOEQVbTQoSFk1GDBZ+L0YUEgceQ1FdS18MDxNfR1gHEFoRShZRFzkWURdCRlIACV1CQFwVBBEUFA4ASToGWloLB1ASXVcKFUYORgcWG0MJV14LElhGbEhfB0MLR1QEAVFATg=="
+            ).setMimeType(MimeTypes.APPLICATION_M3U8)
+            // .setSubtitleConfigurations(subs)
+            .build()
+
+
+
+        if ((player.currentMediaItem?.localConfiguration?.uri.toString() == ActiveM3U8.value)) {
+            //skip
+        } else {
+            player.setMediaItem(media)
+        }
+
+//                val runnableThreadToCapturePlaybackPositions = Runnable {
+//                    while (true) {
+//                        Thread.sleep(1000)
+//                    }
+//                }
+
+        player.addListener(
+            object : Player.Listener {
+                override fun onPlaybackStateChanged(state: Int) {
+                    if (state == ExoPlayer.STATE_READY) {
+                        showLoading.value = false
+                        if (currentSeek.value != 0L) {
+                            player.seekTo(currentSeek.value)
+                            currentSeek.value = 0
+                        }
+                    } else if (state == ExoPlayer.STATE_ENDED) {
+                        player.seekTo(0)
+                        player.play()
+                    } else if (state == ExoPlayer.STATE_IDLE) {
+                        player.prepare()
+                    } else if (state == ExoPlayer.STATE_BUFFERING) {
+                        //showLoading.value = true
+                        // Too buggy
+                    }
+                }
+            },
+        )
+
+        //Thread(runnableThreadToCapturePlaybackPositions).start()
+
+        if (currentSeek.value != 0L) {
+            player.seekTo(currentSeek.value)
+        }
+        player.prepare()
+        // player.stop()
+
+        Column(
+            modifier = if (isF.value) {
+                Modifier
+                    .fillMaxSize()
+                    .fillMaxHeight()
+            } else {
+                Modifier
+                    .fillMaxWidth()
+                    .height(260.dp)
+            },
+            verticalArrangement = Arrangement.Center,
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
+            AndroidView(factory = { context ->
+                LayoutInflater.from(context).inflate(R.layout.activity_player, null)
+            }, update = {
+                video_view = it.findViewById(R.id.playerView)
+                video_view?.player = player
+                video_view?.setShowBuffering(PlayerView.SHOW_BUFFERING_NEVER)
+                val zoomButton = it.findViewById<ImageView>(R.id.zoomButton)
+                val rotateButton = it.findViewById<ImageView>(R.id.rotateButton)
+                val playerView = video_view!!
+                val qualityButton = it.findViewById<ImageView>(R.id.qualityButton)
+                playerView.resizeMode = AspectRatioFrameLayout.RESIZE_MODE_FIT
+                playerView.setControllerVisibilityListener(
+                    PlayerControlView.VisibilityListener { visibility ->
+                        zoomButton.visibility =
+                            if (visibility == View.VISIBLE) View.VISIBLE else View.GONE
+                        rotateButton.visibility =
+                            if (visibility == View.VISIBLE) View.VISIBLE else View.GONE
+                        qualityButton.visibility =
+                            if (visibility == View.VISIBLE) View.VISIBLE else View.GONE
+                    }
+                )
+                playerView.setShowBuffering(PlayerView.SHOW_BUFFERING_NEVER)
+
+
+                playerView.showController()
+            },
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(0.dp, 0.dp, 0.dp, 0.dp)
+                    .background(Color.Black)
+            )
+        }
+    }
+}
 
 @RequiresApi(Build.VERSION_CODES.Q)
 @androidx.annotation.OptIn(androidx.media3.common.util.UnstableApi::class)
@@ -160,13 +284,25 @@ fun PlayerN(nav: NavHostController) {
                 verticalArrangement = Arrangement.Center,
                 horizontalAlignment = Alignment.CenterHorizontally
             ) {
-                Text(
-                    text = "Preparing Stream...",
-                    fontFamily = sans_bold,
-                    fontSize = 20.sp,
-                    color = Color.White,
-                    modifier = Modifier.padding(0.dp, 0.dp, 0.dp, 0.dp)
-                )
+                Column (
+                    verticalArrangement = Arrangement.SpaceBetween
+                ) {
+                    Text(
+                        text = "Preparing Stream...",
+                        fontFamily = sans_bold,
+                        fontSize = 20.sp,
+                        color = Color.White,
+                        modifier = Modifier.padding(0.dp, 0.dp, 0.dp, 0.dp)
+                    )
+
+                    CircularProgressIndicator(
+                        color = Color.Red,
+                        strokeWidth = 4.dp,
+                        modifier = Modifier
+                            .height(40.dp)
+                            .width(40.dp)
+                    )
+                }
             }
         } else {
             LaunchedEffect(Unit) {
@@ -289,10 +425,13 @@ fun PlayerN(nav: NavHostController) {
                 }
 
                 val media = MediaItem.Builder()
-                    .setUri(ActiveM3U8.value)
-                    .setMimeType(mimeType)
+                    .setUri(
+                        ActiveM3U8.value
+                    ).setMimeType(mimeType)
                     .setSubtitleConfigurations(subs)
                     .build()
+
+
 
                 if ((player.currentMediaItem?.localConfiguration?.uri.toString() == ActiveM3U8.value)) {
                     //skip
@@ -306,25 +445,27 @@ fun PlayerN(nav: NavHostController) {
 //                    }
 //                }
 
-                player.addListener(object : Player.Listener {
-                    override fun onPlaybackStateChanged(state: Int) {
-                        if (state == ExoPlayer.STATE_READY) {
-                            showLoading.value = false
-                            if (currentSeek.value != 0L) {
-                                player.seekTo(currentSeek.value)
-                                currentSeek.value = 0
+                player.addListener(
+                    object : Player.Listener {
+                        override fun onPlaybackStateChanged(state: Int) {
+                            if (state == ExoPlayer.STATE_READY) {
+                                showLoading.value = false
+                                if (currentSeek.value != 0L) {
+                                    player.seekTo(currentSeek.value)
+                                    currentSeek.value = 0
+                                }
+                            } else if (state == ExoPlayer.STATE_ENDED) {
+                                player.seekTo(0)
+                                player.play()
+                            } else if (state == ExoPlayer.STATE_IDLE) {
+                                player.prepare()
+                            } else if (state == ExoPlayer.STATE_BUFFERING) {
+                                //showLoading.value = true
+                                // Too buggy
                             }
-                        } else if (state == ExoPlayer.STATE_ENDED) {
-                            player.seekTo(0)
-                            player.play()
-                        } else if (state == ExoPlayer.STATE_IDLE) {
-                            player.prepare()
-                        } else if (state == ExoPlayer.STATE_BUFFERING) {
-                            //showLoading.value = true
-                            // Too buggy
                         }
-                    }
-                }, )
+                    },
+                )
 
                 //Thread(runnableThreadToCapturePlaybackPositions).start()
 

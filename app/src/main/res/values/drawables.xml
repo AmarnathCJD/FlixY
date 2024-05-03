@@ -1,0 +1,9 @@
+<resources xmlns:tools="http://schemas.android.com/tools">
+    <drawable name="exo_styled_controls_play" tools:override="true">@drawable/play_button</drawable>
+    <drawable name="exo_styled_controls_pause" tools:override="true">@drawable/pause_button</drawable>
+    <drawable name="exo_styled_controls_previous" tools:override="true">@drawable/previous_track
+    </drawable>
+    <drawable name="exo_styled_controls_next" tools:override="true">@drawable/next_track
+    </drawable>
+
+</resources>

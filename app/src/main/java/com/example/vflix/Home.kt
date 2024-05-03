@@ -46,6 +46,7 @@ import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Search
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.BottomAppBar
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
@@ -86,6 +87,7 @@ import androidx.compose.ui.zIndex
 import androidx.navigation.NavHostController
 import coil.compose.AsyncImage
 import coil.request.ImageRequest
+import com.example.vflix.api.IsServerOffline
 import com.example.vflix.auth.Auth
 import com.example.vflix.auth.Watched
 import com.example.vflix.parser.GetRandGradient
@@ -118,7 +120,6 @@ var clickedID = ""
 var mediaType = ""
 
 
-
 @Composable
 fun EnterAnimation(content: @Composable () -> Unit) {
     AnimatedVisibility(
@@ -142,7 +143,6 @@ fun EnterAnimation(content: @Composable () -> Unit) {
 @Composable
 fun HomePage(navController: NavHostController) {
     val context = LocalContext.current
-    println("HOME PAGE: ${context.filesDir}")
     Scaffold(
         bottomBar = { BottomBar(navController = navController) },
         topBar = { TopBar(navController = navController) },
@@ -150,7 +150,45 @@ fun HomePage(navController: NavHostController) {
         val configuration = LocalConfiguration.current
 
         LaunchedEffect(Unit) {
-            gatherFeaturedItems(featuredItems, context)
+            gatherFeaturedItems(featuredItems, context, true)
+        }
+
+        if (IsServerOffline.value == true) {
+            AlertDialog(
+                onDismissRequest = { IsServerOffline.value = false },
+                title = {
+                    Text(
+                        "FlixY Server ~",
+                        fontFamily = sans_bold
+                    )
+                },
+                text = {
+                    Text(
+                        "The server is currently offline. Please try again later.",
+                        fontFamily = sans_bold
+                    )
+                },
+                confirmButton = {
+                    Button(
+                        onClick = {
+                            IsServerOffline.value = false
+                            gatherFeaturedItems(featuredItems, context, false)
+                        },
+                        colors = ButtonDefaults.buttonColors(
+                            contentColor = Color.White,
+                            containerColor = Color(0xFF4B1606)
+                        )
+                    ) {
+                        Text(
+                            "Refresh",
+                            fontFamily = sans_bold
+                        )
+                    }
+                },
+                containerColor = Color.Black,
+                titleContentColor = Color.Red,
+                textContentColor = Color.White
+            )
         }
 
         val gradientColors = GetRandGradient()
@@ -207,7 +245,8 @@ fun HomePage(navController: NavHostController) {
                     ) { page ->
                         val showShimmer = remember { mutableStateOf(true) }
                         val showSpinner = remember { mutableStateOf(false) }
-                        showSpinner.value = (featuredItems.value.isEmpty() || featuredItems.value.size < 15)
+                        showSpinner.value =
+                            (featuredItems.value.isEmpty() || featuredItems.value.size < 15)
 
                         if (!showSpinner.value) {
                             Card(
@@ -261,10 +300,11 @@ fun HomePage(navController: NavHostController) {
 
                             ) {
                                 Box(
-                                    modifier = Modifier.padding(0.dp)
-                                    , contentAlignment = Alignment.Center
+                                    modifier = Modifier.padding(0.dp),
+                                    contentAlignment = Alignment.Center
                                 ) {
-                                    val quality = featuredItems.value.getOrNull(page)?.quality ?: "N/A"
+                                    val quality =
+                                        featuredItems.value.getOrNull(page)?.quality ?: "N/A"
                                     if (quality != "Unknown") {
                                         Row(
                                             modifier = Modifier
@@ -631,19 +671,19 @@ fun TopCategoryHome() {
                     .padding(horizontal = 10.dp, vertical = 5.dp)
             )
             //DropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
-              //  categories.forEach { category ->
-                //    DropdownMenuItem(
-                  //      text = { Text(text = category) },
-                    //    onClick = {
-                      ///      selectedCategory = category
-                         //   expanded = false
-                       // },
-                        //c/olors = MenuDefaults.itemColors(
+            //  categories.forEach { category ->
+            //    DropdownMenuItem(
+            //      text = { Text(text = category) },
+            //    onClick = {
+            ///      selectedCategory = category
+            //   expanded = false
+            // },
+            //c/olors = MenuDefaults.itemColors(
 // color Set
-                        //)
-                    //)
-               // }
-           // }
+            //)
+            //)
+            // }
+            // }
         }
     }
 }
@@ -804,20 +844,20 @@ fun TrendingBar(
             }
 
 
-          //  randomGenres = randomGenres.toList().shuffled().take(10).toTypedArray()
+            //  randomGenres = randomGenres.toList().shuffled().take(10).toTypedArray()
             //val data = remember { mutableStateOf<List<Genre>>(emptyList()) }
             //LaunchedEffect(Unit) {
-              //  fetchGenres(randomGenres, data)
+            //  fetchGenres(randomGenres, data)
             //}
             //ContinueWatchingBar(nav = navController)
             //if (!data.value.isNullOrEmpty() && !data.value[0].results.isNullOrEmpty()) {
-              //  //LazyColumn() {
-                //l    for (genre in data.value) {
-                   //     if (!genre.genre.isNullOrEmpty() && !genre.results.isNullOrEmpty())
-                     //   TitleGenreBar(genre.genre, navController, genre.results)
-                    //}
+            //  //LazyColumn() {
+            //l    for (genre in data.value) {
+            //     if (!genre.genre.isNullOrEmpty() && !genre.results.isNullOrEmpty())
+            //   TitleGenreBar(genre.genre, navController, genre.results)
+            //}
             //} else {
-              //  println("EMPTY GENRE")
+            //  println("EMPTY GENRE")
             //}
         }
     }

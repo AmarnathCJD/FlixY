@@ -430,7 +430,7 @@ fun VideoScreen(
                             horizontalArrangement = Arrangement.SpaceBetween
                         ) {
                             Image(
-                                painter = painterResource(id = R.drawable.icons8_circled_play_100),
+                                painter = painterResource(id = R.drawable.logo),
                                 contentDescription = null,
                                 modifier = Modifier
                                     .height(128.dp)
