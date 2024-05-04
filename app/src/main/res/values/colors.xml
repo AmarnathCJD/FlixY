@@ -3,4 +3,8 @@
     <color name="pop_button_color">#FF5722</color>
 
     <color name="bg_color">#EC9DED</color>
+
+    <color name="exo_white">#E9F1F7</color>
+    <color name="exo_white_opacity_70">#B3E9F1F7</color>
+
 </resources>

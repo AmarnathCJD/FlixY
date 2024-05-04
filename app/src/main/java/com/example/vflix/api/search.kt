@@ -16,7 +16,7 @@ class NTSearch(
     @com.google.gson.annotations.SerializedName("title") val title: String,
     @com.google.gson.annotations.SerializedName("href") val href: String,
     @com.google.gson.annotations.SerializedName("category") val category: String,
-    @com.google.gson.annotations.SerializedName("poster") val poster: String,
+    @com.google.gson.annotations.SerializedName("poster") var poster: String,
     @com.google.gson.annotations.SerializedName("quality") val quality: String,
 )
 
@@ -37,16 +37,30 @@ fun INTSearchTitle(query: String, data: MutableState<List<NTSearch>>, showProgre
 
                 override fun onResponse(call: Call, response: Response) {
                     val json = response.body?.string()
-                    val resp = Gson().fromJson(json, NTSearchBox::class.java)
-
-                    data.value = resp.titles
-                    if (resp.titles.isEmpty()) {
-                        showNoResults.value = true
-                    } else {
-                        showNoResults.value = false
+                    var resp: NTSearchBox? = null
+                    try {
+                        resp = Gson().fromJson(json, NTSearchBox::class.java)
+                    } catch (e: Exception) {
+                        println("Error: $e")
                     }
-                    if (resp.next != "0") {
-                        println("Next page: $resp.next")
+
+                    if (resp != null) {
+                        data.value = resp.titles
+                    }
+
+                    // set poster field suffix as BACKEND_URL
+                    for (i in data.value.indices) {
+                        data.value[i].poster = "$BACKEND_URL${data.value[i].poster}"
+
+                        println(data.value[i].poster)
+                    }
+
+                    if (resp != null) {
+                        if (resp.titles.isEmpty()) {
+                            showNoResults.value = true
+                        } else {
+                            showNoResults.value = false
+                        }
                     }
 
                     showProgress.value = false

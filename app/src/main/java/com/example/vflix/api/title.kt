@@ -2,6 +2,8 @@ package com.example.vflix.api
 
 import androidx.compose.runtime.MutableState
 import androidx.compose.runtime.mutableStateOf
+import com.example.vflix.IsInitial
+import com.example.vflix.PlaybackStart
 import com.google.gson.Gson
 import okhttp3.Call
 import okhttp3.Callback
@@ -13,12 +15,13 @@ import java.io.IOException
 var FeaturedItems = mutableStateOf(emptyList<FeaturedItem>())
 
 var IsServerOffline = mutableStateOf(false)
+var ShowSourceNotAvailable = mutableStateOf(false)
 
 class FeaturedItem(
     @com.google.gson.annotations.SerializedName("title") val title: String,
     @com.google.gson.annotations.SerializedName("href") val href: String,
     @com.google.gson.annotations.SerializedName("category") val category: String,
-    @com.google.gson.annotations.SerializedName("poster") val poster: String,
+    @com.google.gson.annotations.SerializedName("poster") var poster: String,
     @com.google.gson.annotations.SerializedName("quality") val quality: String,
 )
 
@@ -141,6 +144,10 @@ fun GatherFeaturedItems(
                         }
                         if (items != null) {
                             if (items.isNotEmpty()) {
+                                // suffix poster field with BACKEND_URL
+                                for (i in items.indices) {
+                                    items[i].poster = "$BACKEND_URL${items[i].poster}"
+                                }
                                 FeaturedItems.value = items
                                 saveHomePageItemToInternalStorage(context)
                             }
@@ -158,43 +165,41 @@ fun GatherNTInSync(
     ActiveM3U8: MutableState<String>,
     Subs: MutableState<List<NSubtitle>>,
     showLoading: MutableState<Boolean>,
-    showNoSource: MutableState<Boolean>
+    showNoSource: MutableState<Boolean>,
+    context: android.content.Context
 ) {
     Thread {
-        println("Gathering NT: $BACKEND_URL/api/info?id=${urlquote(href)}")
         val client = OkHttpClient()
         val request =
             Request.Builder().url("$BACKEND_URL/api/info?id=${urlquote(href)}").build()
         val response = client.newCall(request).execute()
 
-        println("Gathering NT: $BACKEND_URL/api/info?id=${urlquote(href)}")
         val json = response.body?.string()
         val items = Gson().fromJson(json, NT::class.java)
 
         val titleId = href.split("-").last()
-        println(href.split("/"))
         val titleType = href.split("/")[1]
 
-        val NTObject = NT()
-        NTObject.href = href
+        val nt = NT()
+        nt.href = href
 
-        NTObject.id = titleId
-        NTObject.title = items.title
-        NTObject.description = items.description
-        NTObject.image = items.image
-        NTObject.quality = items.quality
-        NTObject.imdb_rating = items.imdb_rating.split(": ").last()
-        NTObject.category = titleType
-        NTObject.genres = items.genres
-        NTObject.casts = items.casts
-        NTObject.duration = items.duration
-        NTObject.country = items.country
-        NTObject.production = items.production
-        NTObject.release = items.release
-        NTObject.similar_titles = items.similar_titles
-        NTObject.trailer = items.trailer
+        nt.id = titleId
+        nt.title = items.title
+        nt.description = items.description
+        nt.image = BACKEND_URL + items.image
+        nt.quality = items.quality
+        nt.imdb_rating = items.imdb_rating.split(": ").last()
+        nt.category = titleType
+        nt.genres = items.genres
+        nt.casts = items.casts
+        nt.duration = items.duration
+        nt.country = items.country
+        nt.production = items.production
+        nt.release = items.release
+        nt.similar_titles = items.similar_titles
+        nt.trailer = items.trailer
 
-        m.value = NTObject
+        m.value = nt
 
         if (titleType == "tv") {
             println("Gathering seasons for $titleId: $BACKEND_URL/api/seasons?id=${titleId}")
@@ -204,14 +209,39 @@ fun GatherNTInSync(
             val seasonJson = seasonResponse.body?.string()
             val seasons =
                 Gson().fromJson(seasonJson, Array<NSeason>::class.java).toList()
-            NTObject.seasons = seasons
-            if (NTObject.seasons.isNotEmpty()) {
-                se.value = Pair(NTObject.seasons[0].season_id.toInt(), 0)
-                GatherEpisodes(m, se, ActiveM3U8, Subs, showLoading, showNoSource)
+
+            if (seasons.isEmpty()) {
+                ShowSourceNotAvailable.value = true
+            }
+            nt.seasons = seasons
+            if (nt.seasons.isNotEmpty()) {
+                val cw = GetLastPlayedSeason(titleId, titleType, context)
+                if (cw != null && IsInitial.value) {
+                    val lastPlayedEpisode = cw.episodes.maxByOrNull { it.ep_id.toInt() }
+                    if (lastPlayedEpisode != null) {
+                        se.value = Pair(cw.season_id.toInt(), lastPlayedEpisode.ep_id.toInt())
+                        PlaybackStart.value = lastPlayedEpisode.position.toLong()
+                    } else {
+                        se.value = Pair(cw.season_id.toInt(), 0)
+                    }
+                    println("PlaybackStart: ${PlaybackStart.value}")
+                    GatherEpisodes(m, se, ActiveM3U8, Subs, showLoading, showNoSource)
+                } else {
+                    se.value = Pair(nt.seasons[0].season_id.toInt(), 0)
+                    GatherEpisodes(m, se, ActiveM3U8, Subs, showLoading, showNoSource)
+                }
             }
         } else {
             se.value = Pair(titleId.toInt(), titleId.toInt())
-            GatherEmbedURL(m, se, ActiveM3U8, Subs, showLoading, showNoSource)
+            val cw = GetLastPlayedEpisode(titleId, titleType, context)
+
+            if (cw != null && IsInitial.value) {
+                PlaybackStart.value = cw.position.toLong()
+                println("PlaybackStart: ${PlaybackStart.value}")
+                GatherEmbedURL(m, se, ActiveM3U8, Subs, showLoading, showNoSource)
+            } else {
+                GatherEmbedURL(m, se, ActiveM3U8, Subs, showLoading, showNoSource)
+            }
         }
     }.start()
 }
@@ -225,7 +255,6 @@ fun GatherEpisodes(
     showNoSource: MutableState<Boolean>,
     showFetchEmbed: Boolean = true
 ) {
-    println("Gathering episodes for ${a.value?.id}: $BACKEND_URL/api/episodes?id=${se.value.first}")
     Thread {
         val client = OkHttpClient()
         val request =
@@ -238,12 +267,19 @@ fun GatherEpisodes(
         if (se.value.second == 0) {
             if (a.value?.episodes?.size!! > 0) {
                 se.value = Pair(se.value.first, a.value?.episodes?.get(0)?.episode_id?.toInt()!!)
-                println("Active episode: ${se.value.second}")
+                println("Active episode: ${se.value.second}, active season: ${se.value.first}")
                 if (showFetchEmbed) {
                     GatherEmbedURL(a, se, ActiveM3U8, Subs, showLoading, showNoSource)
                 }
             }
         }
+//        } else {
+//            println("Active episodeX: ${se.value.second}, episodes: ${a.value?.episodes?.size}, season: ${se.value.first}")
+//            se.value = Pair(se.value.first, )
+//            if (showFetchEmbed) {
+//                GatherEmbedURL(a, se, ActiveM3U8, Subs, showLoading, showNoSource)
+//            }
+//        }
     }.start()
 }
 
@@ -290,8 +326,7 @@ fun GatherEmbedURL(
                     }
 
                     if (i["subs"] != null) {
-                        println("Subtitles: ${i["subs"]}")
-                        var subs = mutableListOf<NSubtitle>()
+                        val subs = mutableListOf<NSubtitle>()
                         val sub = i["subs"] as List<*>?
 
                         if (sub != null) {

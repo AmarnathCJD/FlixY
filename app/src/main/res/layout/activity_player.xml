@@ -32,11 +32,11 @@
             android:layout_marginEnd="115dp"
             android:layout_marginBottom="18dp"
             android:clickable="true"
+            android:contentDescription="@string/app_name"
+            android:focusable="true"
             android:onClick="onZoomButtonClick"
             android:src="@drawable/aspect_ratio"
-            android:visibility="invisible"
-            android:focusable="true"
-            android:contentDescription="@string/app_name" />
+            android:visibility="invisible" />
 
         <ImageView
             android:id="@+id/rotateButton"
@@ -46,11 +46,11 @@
             android:layout_marginEnd="170dp"
             android:layout_marginBottom="21dp"
             android:clickable="true"
+            android:contentDescription="@string/app_name"
+            android:focusable="true"
             android:onClick="onRotateButtonClick"
             android:src="@drawable/expand"
-            android:visibility="invisible"
-            android:focusable="true"
-            android:contentDescription="@string/app_name" />
+            android:visibility="invisible" />
 
         <ImageView
             android:id="@+id/qualityButton"
@@ -60,10 +60,42 @@
             android:layout_marginEnd="225dp"
             android:layout_marginBottom="17dp"
             android:clickable="true"
+            android:contentDescription="@string/app_name"
+            android:focusable="true"
             android:onClick="onQualityButtonClick"
             android:src="@drawable/hq"
-            android:visibility="visible"
+            android:visibility="visible" />
+
+        <TextView
+            android:id="@+id/currentPlayingTitle"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:layout_gravity="top"
+            android:layout_marginStart="10dp"
+            android:layout_marginLeft="10dp"
+            android:layout_marginTop="10dp"
+            android:layout_marginEnd="10dp"
+            android:layout_marginRight="10dp"
+            android:layout_marginBottom="10dp"
+            android:gravity="top|center"
+            android:padding="10dp"
+            android:fontFamily="@font/sans_bold"
+            android:textColor="@android:color/white"
+            android:textSize="8sp"
+            android:visibility="invisible" />
+
+        <ImageView
+            android:id="@+id/backButton"
+            android:layout_width="24dp"
+            android:layout_height="24dp"
+            android:layout_gravity="top|start"
+            android:layout_marginStart="18dp"
+            android:layout_marginTop="17dp"
+            android:layout_marginBottom="10dp"
+            android:clickable="true"
+            android:contentDescription="@string/app_name"
             android:focusable="true"
-            android:contentDescription="@string/app_name" />
+            android:src="@drawable/icons8_left_96"
+            android:visibility="visible" />
     </FrameLayout>
 </androidx.constraintlayout.widget.ConstraintLayout>

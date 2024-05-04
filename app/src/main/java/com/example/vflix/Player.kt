@@ -292,7 +292,7 @@ fun VideoScreen(
                                     )
                             )
                             Text(
-                                text = "$clickedName",
+                                text = clickedName,
                                 fontFamily = sans_bold,
                                 color = Color.White, fontSize = 14.sp,
                                 modifier = Modifier
@@ -382,7 +382,7 @@ fun VideoScreen(
                     getPlaybackTime(clickedID, currentSE.value.first, currentSE.value.second)
             }
             if (setupPlayer.value) {
-                if (!contentType.isNullOrEmpty() && imdbIdState.value != "") {
+                if (contentType.isNotEmpty() && imdbIdState.value != "") {
                     if (hlsSource.value.sources.isEmpty()) {
                         fetchSourceFromIMDBID(
                             imdbIdState.value,

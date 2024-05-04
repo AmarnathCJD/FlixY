@@ -87,7 +87,10 @@ import androidx.compose.ui.zIndex
 import androidx.navigation.NavHostController
 import coil.compose.AsyncImage
 import coil.request.ImageRequest
+import com.example.vflix.api.CWAlreadyRead
+import com.example.vflix.api.ContinueWatching
 import com.example.vflix.api.IsServerOffline
+import com.example.vflix.api.retrieveContinueWatchingFromInternalStorage
 import com.example.vflix.auth.Auth
 import com.example.vflix.auth.Watched
 import com.example.vflix.parser.GetRandGradient
@@ -583,9 +586,22 @@ fun HomePage(navController: NavHostController) {
                         .padding(horizontal = 8.dp, vertical = 5.dp),
                     horizontalArrangement = Arrangement.SpaceBetween
                 ) {
+                    CWBar(navController)
+                }
+                Row(
+                    modifier =
+                    Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 8.dp, vertical = 5.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween
+                ) {
+
                     TrendingBar(featuredItems.value, navController)
+
                     // TODO: nested LazyRow and LazyColumn
                 }
+
+
                 Spacer(modifier = Modifier.height(12.dp))
             }
         }
@@ -821,6 +837,122 @@ fun TrendingBar(
                                             clickedName = item.title
                                             clickedID = item.href
                                             mediaType = item.category
+                                            prevPageHistory.add(
+                                                PrevNav(
+                                                    prevPage = "homePage",
+                                                    prevID = clickedID,
+                                                    prevName = clickedName,
+                                                    prevMediaType = mediaType,
+                                                    prevSearch = "",
+                                                )
+                                            )
+                                            navController.navigate("videoScreen")
+                                        },
+                                    onSuccess = {
+                                        showShimmer.value = false
+                                    }
+                                )
+                                Spacer(modifier = Modifier.width(4.dp))
+                            }
+                        }
+                    }
+                }
+            }
+
+
+            //  randomGenres = randomGenres.toList().shuffled().take(10).toTypedArray()
+            //val data = remember { mutableStateOf<List<Genre>>(emptyList()) }
+            //LaunchedEffect(Unit) {
+            //  fetchGenres(randomGenres, data)
+            //}
+            //ContinueWatchingBar(nav = navController)
+            //if (!data.value.isNullOrEmpty() && !data.value[0].results.isNullOrEmpty()) {
+            //  //LazyColumn() {
+            //l    for (genre in data.value) {
+            //     if (!genre.genre.isNullOrEmpty() && !genre.results.isNullOrEmpty())
+            //   TitleGenreBar(genre.genre, navController, genre.results)
+            //}
+            //} else {
+            //  println("EMPTY GENRE")
+            //}
+        }
+    }
+}
+
+@RequiresApi(Build.VERSION_CODES.Q)
+@Composable
+fun CWBar(
+    navController: NavHostController
+) {
+    if (!CWAlreadyRead.value) {
+        println("retrieving continue watching from internal storage")
+        retrieveContinueWatchingFromInternalStorage(LocalContext.current)
+        CWAlreadyRead.value = true
+    }
+
+    //deleteContinueWatchingFromInternalStorage(LocalContext.current)
+
+
+    val items = ContinueWatching.value
+    if (items.isNotEmpty()) {
+        Column {
+            Row {
+                Text(
+                    text = "Continue Watching",
+                    fontSize = 16.sp,
+                    fontFamily = sans_bold,
+                    color = Color.White
+                )
+            }
+
+            val lazyListState = rememberLazyListState()
+
+            Row {
+                var pageSize = items.size / 3
+                if (pageSize == 0) {
+                    pageSize = 1
+                }
+                LazyRow(
+                    modifier =
+                    Modifier,
+                    //.clip(RoundedCornerShape(1.dp)),
+                    state = lazyListState,
+                ) {
+                    itemsIndexed(items) { index, item ->
+                        val showShimmer = remember { mutableStateOf(true) }
+                        val pageIndex = index / pageSize
+                        val pageStartIndex = pageIndex * pageSize
+                        val pageEndIndex = (pageIndex + 1) * pageSize - 1
+
+                        if (index in pageStartIndex..pageEndIndex) {
+                            Box(
+                                modifier = Modifier
+                                    .width(120.dp)
+                                    .height(168.dp)
+                                    .padding(4.dp)
+                                // .background(Color.LightGray)
+                            ) {
+                                AsyncImage(
+                                    model =
+                                    ImageRequest.Builder(LocalContext.current)
+                                        .data(item.poster)
+                                        .crossfade(true)
+                                        .build(),
+                                    contentDescription = "Movie Poster",
+                                    contentScale = ContentScale.Crop,
+                                    modifier = Modifier
+                                        .fillMaxSize()
+                                        .clip(RoundedCornerShape(4.dp))
+                                        .background(
+                                            shimmerBrush(
+                                                targetValue = 1300f,
+                                                showShimmer = showShimmer.value
+                                            )
+                                        )
+                                        .clickable {
+                                            clickedName = item.title
+                                            clickedID = item.href
+                                            mediaType = item.mediaType
                                             prevPageHistory.add(
                                                 PrevNav(
                                                     prevPage = "homePage",

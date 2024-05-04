@@ -4,9 +4,11 @@ import android.content.pm.ActivityInfo
 import android.content.res.Configuration
 import android.net.Uri
 import android.os.Build
+import android.os.Handler
 import android.view.LayoutInflater
 import android.view.View
 import android.widget.ImageView
+import android.widget.TextView
 import androidx.activity.compose.BackHandler
 import androidx.annotation.RequiresApi
 import androidx.compose.foundation.Image
@@ -85,14 +87,17 @@ import androidx.media3.ui.PlayerView
 import androidx.navigation.NavHostController
 import coil.compose.AsyncImage
 import coil.request.ImageRequest
+import com.example.vflix.api.BACKEND_URL
 import com.example.vflix.api.FetchTrailer
 import com.example.vflix.api.GatherEmbedURL
 import com.example.vflix.api.GatherEpisodes
 import com.example.vflix.api.GatherNTInSync
+import com.example.vflix.api.InsertOrUpdateLastPlayedEpisode
 import com.example.vflix.api.M3U8QualitiesSync
 import com.example.vflix.api.NSubtitle
 import com.example.vflix.api.NT
 import com.example.vflix.api.NTQuality
+import com.example.vflix.api.ShowSourceNotAvailable
 import com.example.vflix.ui.theme.sans_bold
 
 var activeTitle = mutableStateOf<NT?>(null)
@@ -106,6 +111,8 @@ val isF = mutableStateOf(false)
 val currentQualityUrl = mutableStateOf("")
 val availQualities = mutableStateOf(listOf<NTQuality>())
 val Subs = mutableStateOf(listOf<NSubtitle>())
+val PlaybackStart = mutableStateOf(0L)
+val IsInitial = mutableStateOf(true)
 
 @RequiresApi(Build.VERSION_CODES.Q)
 @androidx.annotation.OptIn(androidx.media3.common.util.UnstableApi::class)
@@ -114,6 +121,8 @@ val Subs = mutableStateOf(listOf<NSubtitle>())
 fun vid() {
     val context = LocalContext.current
     val trackSelector = DefaultTrackSelector(context)
+
+    val currentPlayingName = "Hello Kitti"
 
     val player = remember {
         ExoPlayer.Builder(context).setTrackSelector(trackSelector)
@@ -180,6 +189,7 @@ fun vid() {
         if (currentSeek.value != 0L) {
             player.seekTo(currentSeek.value)
         }
+
         player.prepare()
         // player.stop()
 
@@ -206,6 +216,14 @@ fun vid() {
                 val rotateButton = it.findViewById<ImageView>(R.id.rotateButton)
                 val playerView = video_view!!
                 val qualityButton = it.findViewById<ImageView>(R.id.qualityButton)
+                val currentPlaying = it.findViewById<TextView>(R.id.currentPlayingTitle)
+                val backButton = it.findViewById<ImageView>(
+                    R.id.backButton
+                )
+                backButton.setOnClickListener {
+
+                }
+                currentPlaying.text = currentPlayingName
                 playerView.resizeMode = AspectRatioFrameLayout.RESIZE_MODE_FIT
                 playerView.setControllerVisibilityListener(
                     PlayerControlView.VisibilityListener { visibility ->
@@ -214,6 +232,12 @@ fun vid() {
                         rotateButton.visibility =
                             if (visibility == View.VISIBLE) View.VISIBLE else View.GONE
                         qualityButton.visibility =
+                            if (visibility == View.VISIBLE) View.VISIBLE else View.GONE
+
+                        currentPlaying.visibility =
+                            if (visibility == View.VISIBLE) View.VISIBLE else View.GONE
+
+                        backButton.visibility =
                             if (visibility == View.VISIBLE) View.VISIBLE else View.GONE
                     }
                 )
@@ -236,8 +260,6 @@ fun vid() {
 @Composable
 fun PlayerN(nav: NavHostController) {
     val context = LocalContext.current
-    context.filesDir
-
     val trackSelector = DefaultTrackSelector(context)
 
     val player = remember {
@@ -261,6 +283,7 @@ fun PlayerN(nav: NavHostController) {
     ) {
         LaunchedEffect(Unit) {
             if (activeTitle.value?.href != clickedID) {
+                IsInitial.value = true
                 GatherNTInSync(
                     clickedID,
                     activeTitle,
@@ -268,7 +291,8 @@ fun PlayerN(nav: NavHostController) {
                     ActiveM3U8,
                     Subs,
                     showLoading,
-                    showNoSource
+                    showNoSource,
+                    context
                 )
                 shouldUpdateM3U8 = true
             }
@@ -285,19 +309,22 @@ fun PlayerN(nav: NavHostController) {
                 horizontalAlignment = Alignment.CenterHorizontally
             ) {
                 Column (
-                    verticalArrangement = Arrangement.SpaceBetween
+                    verticalArrangement = Arrangement.SpaceBetween,
+                    horizontalAlignment = Alignment.CenterHorizontally
                 ) {
                     Text(
-                        text = "Preparing Stream...",
+                        text = "Loading... Metadata",
                         fontFamily = sans_bold,
                         fontSize = 20.sp,
                         color = Color.White,
                         modifier = Modifier.padding(0.dp, 0.dp, 0.dp, 0.dp)
                     )
 
+                    Spacer(modifier = Modifier.height(14.dp))
+
                     CircularProgressIndicator(
-                        color = Color.Red,
-                        strokeWidth = 4.dp,
+                        color = Color.Blue,
+                        strokeWidth = 5.dp,
                         modifier = Modifier
                             .height(40.dp)
                             .width(40.dp)
@@ -307,6 +334,7 @@ fun PlayerN(nav: NavHostController) {
         } else {
             LaunchedEffect(Unit) {
                 if (activeTitle.value?.href != clickedID || shouldUpdateM3U8) {
+                    IsInitial.value = false
                     GatherEmbedURL(
                         activeTitle,
                         activeSE,
@@ -326,28 +354,48 @@ fun PlayerN(nav: NavHostController) {
             }
 
             if (ActiveM3U8.value == "" || activeTitle.value?.href != clickedID || activeTitle.value!!.genJS || showNoSource.value || showLoading.value) {
-                Column(
-                    modifier = Modifier
-                        .height(260.dp)
-                        .fillMaxWidth()
-                        .padding(
-                            top = 15.dp,
-                        )
-                        .border(
-                            width = 0.dp,
-                            color = Color.Black
-                        )
-                        .background(Color.Black),
-                    verticalArrangement = Arrangement.Center,
-                    horizontalAlignment = Alignment.CenterHorizontally
-                ) {
-                    CircularProgressIndicator(
-                        color = Color.Red,
-                        strokeWidth = 4.dp,
+                if (ShowSourceNotAvailable.value) {
+                    Column(
                         modifier = Modifier
-                            .height(40.dp)
-                            .width(40.dp)
-                    )
+                            .fillMaxSize()
+                            .fillMaxHeight()
+                            .fillMaxWidth()
+                            .background(Color.Black),
+                        verticalArrangement = Arrangement.Center,
+                        horizontalAlignment = Alignment.CenterHorizontally
+                    ) {
+                        Text(
+                            text = "Source Not Available",
+                            fontFamily = sans_bold,
+                            fontSize = 20.sp,
+                            color = Color.White,
+                            modifier = Modifier.padding(0.dp, 0.dp, 0.dp, 0.dp)
+                        )
+                    }
+                } else {
+                    Column(
+                        modifier = Modifier
+                            .height(260.dp)
+                            .fillMaxWidth()
+                            .padding(
+                                top = 15.dp,
+                            )
+                            .border(
+                                width = 0.dp,
+                                color = Color.Black
+                            )
+                            .background(Color.Black),
+                        verticalArrangement = Arrangement.Center,
+                        horizontalAlignment = Alignment.CenterHorizontally
+                    ) {
+                        CircularProgressIndicator(
+                            color = Color.Red,
+                            strokeWidth = 4.dp,
+                            modifier = Modifier
+                                .height(40.dp)
+                                .width(40.dp)
+                        )
+                    }
                 }
             } else {
                 if (showLoading.value) {
@@ -439,41 +487,53 @@ fun PlayerN(nav: NavHostController) {
                     player.setMediaItem(media)
                 }
 
-//                val runnableThreadToCapturePlaybackPositions = Runnable {
-//                    while (true) {
-//                        Thread.sleep(1000)
-//                    }
-//                }
+                if (PlaybackStart.value != 0L) {
+                    player.seekTo(PlaybackStart.value)
+                }
 
                 player.addListener(
                     object : Player.Listener {
                         override fun onPlaybackStateChanged(state: Int) {
                             if (state == ExoPlayer.STATE_READY) {
                                 showLoading.value = false
-                                if (currentSeek.value != 0L) {
-                                    player.seekTo(currentSeek.value)
-                                    currentSeek.value = 0
-                                }
                             } else if (state == ExoPlayer.STATE_ENDED) {
-                                player.seekTo(0)
-                                player.play()
+                                println("Ended")
+                                // TODO: Add logic to play next episode
                             } else if (state == ExoPlayer.STATE_IDLE) {
                                 player.prepare()
-                            } else if (state == ExoPlayer.STATE_BUFFERING) {
-                                //showLoading.value = true
-                                // Too buggy
                             }
                         }
                     },
                 )
 
-                //Thread(runnableThreadToCapturePlaybackPositions).start()
-
-                if (currentSeek.value != 0L) {
-                    player.seekTo(currentSeek.value)
+                var lastRecordedPosition = 0L
+                var currPosition = 0L
+                val handler = Handler()
+                val task: Runnable = object : Runnable {
+                    override fun run() {
+                        if (player.currentPosition > (lastRecordedPosition + 10000L)) {
+                            currPosition = player.currentPosition
+                            InsertOrUpdateLastPlayedEpisode(
+                                activeTitle.value!!,
+                                activeSE.value.first,
+                                activeSE.value.second,
+                                currPosition.toInt(),
+                                context
+                            )
+                            lastRecordedPosition = player.currentPosition
+                        }
+                        handler.postDelayed(this, 4000)
+                    }
                 }
+
+                handler.postDelayed(task, 4000)
                 player.prepare()
-                // player.stop()
+
+                var currentPlayingName = activeTitle.value?.title ?: ""
+
+                if (activeTitle.value!!.category == "tv") {
+                    currentPlayingName = selectedSeasonName.value + ":" + selectedEpisodeName.value
+                }
 
                 Column(
                     modifier = if (isF.value) {
@@ -498,6 +558,26 @@ fun PlayerN(nav: NavHostController) {
                         val rotateButton = it.findViewById<ImageView>(R.id.rotateButton)
                         val playerView = video_view!!
                         val qualityButton = it.findViewById<ImageView>(R.id.qualityButton)
+                        val currentPlaying = it.findViewById<TextView>(R.id.currentPlayingTitle)
+                        val backButton = it.findViewById<ImageView>(
+                            R.id.backButton
+                        )
+                        backButton.setOnClickListener {
+                            if (isF.value) {
+                                isF.value = false
+                                context.setScreenOrientation(orientation = ActivityInfo.SCREEN_ORIENTATION_PORTRAIT)
+                            } else {
+                                player.stop()
+                                isPlaying.value = false
+                                if (prevPageHistory.size == 1) {
+                                    nav.navigate("homePage")
+                                } else {
+                                    val lastPage = prevPageHistory.last().prevPage
+                                    nav.navigate(lastPage)
+                                }
+                            }
+                        }
+                        currentPlaying.text = currentPlayingName
                         playerView.resizeMode = AspectRatioFrameLayout.RESIZE_MODE_FIT
                         playerView.setControllerVisibilityListener(
                             PlayerControlView.VisibilityListener { visibility ->
@@ -506,6 +586,12 @@ fun PlayerN(nav: NavHostController) {
                                 rotateButton.visibility =
                                     if (visibility == View.VISIBLE) View.VISIBLE else View.GONE
                                 qualityButton.visibility =
+                                    if (visibility == View.VISIBLE) View.VISIBLE else View.GONE
+
+                                currentPlaying.visibility =
+                                    if (visibility == View.VISIBLE) View.VISIBLE else View.GONE
+
+                                backButton.visibility =
                                     if (visibility == View.VISIBLE) View.VISIBLE else View.GONE
                             }
                         )
@@ -1104,7 +1190,8 @@ fun SetupSeasonAndEpisodeSelector(player: ExoPlayer) {
     val seasons = activeTitle.value?.seasons
     if (seasons.isNullOrEmpty()) {
         selectedSeasonName.value = "Loading..."
-    } else {
+    } else if (selectedSeasonName.value == "") {
+        println("X_TIMES")
         selectedSeasonName.value = seasons[0].title
     }
 
@@ -1197,8 +1284,11 @@ fun SetupSeasonAndEpisodeSelector(player: ExoPlayer) {
                                 )
                             },
                             onClick = {
+                                IsInitial.value = false
                                 activeSE.value = Pair(s.season_id.toInt(), 0)
                                 selectedSeasonName.value = s.title
+
+                                println("SEASON_ID: ${activeSE.value.first}, SEASON_TITLE: ${s.title}")
                                 GatherEpisodes(
                                     activeTitle,
                                     activeSE,
@@ -1208,6 +1298,8 @@ fun SetupSeasonAndEpisodeSelector(player: ExoPlayer) {
                                     showNoSource,
                                     false
                                 )
+
+                                println("SEASON_ID: ${activeSE.value.first}")
                                 expanded = false
                             },
                             modifier = Modifier
@@ -1227,9 +1319,6 @@ fun SetupSeasonAndEpisodeSelector(player: ExoPlayer) {
             }
         }
         Spacer(modifier = Modifier.height(5.dp))
-
-        println("Active SE: ${activeSE.value}, Episodes: ${activeTitle.value?.episodes?.size}")
-
         val pageSize = 5
 
         if ((activeTitle.value?.episodes?.size ?: 0) > 5) {
@@ -1265,6 +1354,8 @@ fun SetupSeasonAndEpisodeSelector(player: ExoPlayer) {
     }
 }
 
+val selectedEpisodeName = mutableStateOf("")
+
 @RequiresApi(Build.VERSION_CODES.Q)
 @Composable
 fun EpisodeItem(item: com.example.vflix.api.NEpisode, player: ExoPlayer) {
@@ -1280,7 +1371,10 @@ fun EpisodeItem(item: com.example.vflix.api.NEpisode, player: ExoPlayer) {
             .clickable { }
     ) {
         var bgColor = Color(0xFF1F1F1F)
+        var iconFill = Color.Yellow
         if (item.episode_id.toInt() == activeSE.value.second) {
+            selectedEpisodeName.value = item.title
+            iconFill = Color.Red
             bgColor = Color(0xFF2F2F2F)
         }
 
@@ -1295,7 +1389,8 @@ fun EpisodeItem(item: com.example.vflix.api.NEpisode, player: ExoPlayer) {
                 .background(bgColor)
                 .clickable {
                     player.stop()
-                    currentSeek.value = 0
+                    PlaybackStart.value = 0L
+                    IsInitial.value = false
                     showLoading.value = true
                     activeSE.value = Pair(activeSE.value.first, item.episode_id.toInt())
                     GatherEmbedURL(
@@ -1306,6 +1401,8 @@ fun EpisodeItem(item: com.example.vflix.api.NEpisode, player: ExoPlayer) {
                         showLoading,
                         showNoSource
                     )
+
+                    selectedEpisodeName.value = item.title
                 }
         ) {
             Text(
@@ -1323,7 +1420,7 @@ fun EpisodeItem(item: com.example.vflix.api.NEpisode, player: ExoPlayer) {
             Icon(
                 imageVector = Icons.Filled.PlayArrow,
                 contentDescription = "Globe Icon",
-                tint = Color.Yellow,
+                tint = iconFill,
                 modifier = Modifier.padding(
                     horizontal = 8.dp,
                     vertical = 4.dp
@@ -1386,7 +1483,7 @@ fun SetupSimilar(
                                 AsyncImage(
                                     model =
                                     ImageRequest.Builder(LocalContext.current)
-                                        .data(item.poster)
+                                        .data(BACKEND_URL+item.poster)
                                         .crossfade(true)
                                         .build(),
                                     contentDescription = "Title Poster",
