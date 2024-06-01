@@ -400,13 +400,22 @@ fun SearchPanel(nav: NavHostController) {
             val aspectRatio = 1.61f // 16:10
 
             val singleItemHeight = singleItemWidth * aspectRatio
-
             for (i in splitSearch) {
                 Spacer(
                     modifier = Modifier.height(
                         0.dp
                     )
                 )
+
+                val haveNoFill = colFactor.intValue - i.size
+
+                var items = i
+                if (haveNoFill > 0) {
+                    for (j in 0 until haveNoFill) {
+                        items = items + NTSearch("", "", "", "", "")
+                    }
+                }
+
                 val lazyListState = rememberLazyListState()
                 LazyRow(
                     modifier =
@@ -417,82 +426,77 @@ fun SearchPanel(nav: NavHostController) {
                         )
                         .clip(RoundedCornerShape(12.dp))
                         .fillMaxWidth(),
-                    horizontalArrangement = if (i.size >= colFactor.intValue) {
-                        Arrangement.SpaceEvenly
-                    } else {
-                        Arrangement.Start
-                    },
+                    horizontalArrangement = Arrangement.SpaceEvenly,
                     state = lazyListState,
                 ) {
-                    itemsIndexed(i) { index, item ->
+                    itemsIndexed(items) { index, item ->
                         val pageIndex = index / colFactor.intValue
                         val pageStartIndex = pageIndex * colFactor.intValue
                         val pageEndIndex = (pageIndex + 1) * colFactor.intValue - 1
 
                         if (index in pageStartIndex..pageEndIndex) {
-                            if ((item.poster.length ?: 0) > 0) {
-                                Row(
-                                    horizontalArrangement = Arrangement.SpaceEvenly,
-                                    modifier = Modifier
-                                        .fillMaxWidth()
-                                        .padding(1.dp)
-                                ) {
-                                    val showShimmer = remember { mutableStateOf(true) }
-                                    Row {
-                                        AsyncImage(
-                                            model =
-                                            ImageRequest.Builder(LocalContext.current)
-                                                .data(item.poster)
-                                                .crossfade(true)
-                                                .build(),
-                                            contentDescription = "Title Poster",
-                                            contentScale = ContentScale.Crop,
-                                            modifier = Modifier
-                                                .height(singleItemHeight.dp)
-                                                .width(singleItemWidth.dp)
-                                                .clip(
-                                                    RoundedCornerShape(
-                                                        3.dp
-                                                    )
-                                                )
-                                                .background(
-                                                    shimmerBrush(
-                                                        targetValue = 600f,
-                                                        showShimmer = showShimmer.value
-                                                    )
-                                                )
 
-                                                .clickable {
-                                                    clickedName = item.title
-                                                    clickedID = item.href
-                                                    mediaType = item.category
-                                                    prevPageHistory.add(
-                                                        PrevNav(
-                                                            prevPage = "searchPanel",
-                                                            prevName = clickedName,
-                                                            prevID = clickedID,
-                                                            prevMediaType = mediaType,
-                                                            prevSearch = SearchBoxContent.value,
-                                                        )
+                            Row(
+                                horizontalArrangement = Arrangement.SpaceEvenly,
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(1.dp)
+                            ) {
+                                val showShimmer = remember { mutableStateOf(true) }
+                                Row {
+                                    AsyncImage(
+                                        model =
+                                        ImageRequest.Builder(LocalContext.current)
+                                            .data(item.poster)
+                                            .crossfade(true)
+                                            .build(),
+                                        contentDescription = "Title Poster",
+                                        contentScale = ContentScale.Crop,
+                                        modifier = Modifier
+                                            .height(singleItemHeight.dp)
+                                            .width(singleItemWidth.dp)
+                                            .clip(
+                                                RoundedCornerShape(
+                                                    3.dp
+                                                )
+                                            )
+                                            .background(
+                                                shimmerBrush(
+                                                    targetValue = 600f,
+                                                    showShimmer = if (item.poster.isEmpty()) false else showShimmer.value
+                                                )
+                                            )
+
+                                            .clickable {
+                                                clickedName = item.title
+                                                clickedID = item.href
+                                                mediaType = item.category
+                                                prevPageHistory.add(
+                                                    PrevNav(
+                                                        prevPage = "searchPanel",
+                                                        prevName = clickedName,
+                                                        prevID = clickedID,
+                                                        prevMediaType = mediaType,
+                                                        prevSearch = SearchBoxContent.value,
                                                     )
-                                                    nav.navigate("videoScreen")
-                                                },
-                                            onSuccess = { showShimmer.value = false },
-                                        )
-                                    }
-                                }
-                                Spacer(
-                                    modifier = Modifier.width(
-                                        1.dp
+                                                )
+                                                nav.navigate("videoScreen")
+                                            },
+                                        onSuccess = { showShimmer.value = false },
                                     )
-                                )
+                                }
                             }
                             Spacer(
-                                modifier = Modifier.height(
+                                modifier = Modifier.width(
                                     1.dp
                                 )
                             )
                         }
+                        Spacer(
+                            modifier = Modifier.height(
+                                1.dp
+                            )
+                        )
                     }
                 }
             }
