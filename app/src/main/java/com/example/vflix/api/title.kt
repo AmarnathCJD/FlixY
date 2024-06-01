@@ -146,7 +146,7 @@ fun GatherFeaturedItems(
                             if (items.isNotEmpty()) {
                                 // suffix poster field with BACKEND_URL
                                 for (i in items.indices) {
-                                    items[i].poster = "$BACKEND_URL${items[i].poster}"
+                                    items[i].poster = "$BACKEND_URL/api/img?url=${items[i].poster}"
                                 }
                                 FeaturedItems.value = items
                                 saveHomePageItemToInternalStorage(context)
@@ -186,7 +186,7 @@ fun GatherNTInSync(
         nt.id = titleId
         nt.title = items.title
         nt.description = items.description
-        nt.image = BACKEND_URL + items.image
+        nt.image = BACKEND_URL + "/api/img?url=${items.image}"
         nt.quality = items.quality
         nt.imdb_rating = items.imdb_rating.split(": ").last()
         nt.category = titleType

@@ -20,6 +20,47 @@ class NTSearch(
     @com.google.gson.annotations.SerializedName("quality") val quality: String,
 )
 
+fun ImdbTop(data: MutableState<List<NTSearch>>, showProgress: MutableState<Boolean>) {
+    val client = OkHttpClient()
+    val request =
+        Request.Builder()
+            .url("$BACKEND_URL/api/imdb")
+            .build()
+
+    client
+        .newCall(request)
+        .enqueue(
+            object : Callback {
+                override fun onFailure(call: Call, e: IOException) {
+                    // Handle network request failure
+                }
+
+                override fun onResponse(call: Call, response: Response) {
+                    val json = response.body?.string()
+                    var resp: Array<NTSearch>? = null
+                    try {
+                        resp = Gson().fromJson(json, Array<NTSearch>::class.java)
+                    } catch (e: Exception) {
+                        println("Error: $e")
+                    }
+
+                    if (resp != null) {
+                        data.value = resp.toList()
+                    }
+
+                    // set poster field suffix as BACKEND_URL
+                    for (i in data.value.indices) {
+                        data.value[i].poster = "$BACKEND_URL/api/img?url=${data.value[i].poster}"
+                        println(data.value[i].poster)
+
+                    }
+
+                    showProgress.value = false
+                }
+            }
+        )
+}
+
 fun INTSearchTitle(query: String, data: MutableState<List<NTSearch>>, showProgress: MutableState<Boolean>, showNoResults: MutableState<Boolean>) {
     val client = OkHttpClient()
     val request =
@@ -50,9 +91,9 @@ fun INTSearchTitle(query: String, data: MutableState<List<NTSearch>>, showProgre
 
                     // set poster field suffix as BACKEND_URL
                     for (i in data.value.indices) {
-                        data.value[i].poster = "$BACKEND_URL${data.value[i].poster}"
-
+                        data.value[i].poster = "$BACKEND_URL/api/img?url=${data.value[i].poster}"
                         println(data.value[i].poster)
+
                     }
 
                     if (resp != null) {

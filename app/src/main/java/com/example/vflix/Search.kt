@@ -20,7 +20,6 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
@@ -35,11 +34,8 @@ import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextFieldDefaults
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.MutableState
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.Offset
@@ -56,20 +52,13 @@ import androidx.navigation.NavHostController
 import coil.compose.AsyncImage
 import coil.request.ImageRequest
 import com.example.vflix.api.INTSearchTitle
+import com.example.vflix.api.ImdbTop
 import com.example.vflix.api.NTSearch
-import com.example.vflix.parser.Channel
-import com.example.vflix.parser.SearchChannel
 import com.example.vflix.ui.theme.sans_bold
-import com.google.gson.Gson
-import okhttp3.Call
-import okhttp3.Callback
-import okhttp3.OkHttpClient
-import okhttp3.Response
-import java.io.IOException
-import java.net.URLEncoder
 
 val SearchData = mutableStateOf<List<NTSearch>>(emptyList())
 val SearchBoxContent = mutableStateOf("")
+val topTitlesShown = mutableStateOf(false)
 
 var searchValue = mutableStateOf("")
 
@@ -92,6 +81,20 @@ fun SearchPanel(nav: NavHostController) {
 
     val search = SearchData.value
 
+    if (SearchBoxContent.value.isEmpty()) {
+        Thread {
+            ImdbTop(
+                SearchData,
+                showProgress,
+            )
+        }.start()
+
+        topTitlesShown.value = true
+    } else if (topTitlesShown.value) {
+        SearchData.value = emptyList()
+        topTitlesShown.value = false
+    }
+
     Column(
         modifier =
         Modifier
@@ -105,7 +108,7 @@ fun SearchPanel(nav: NavHostController) {
                 contentDescription = null,
                 modifier = Modifier
                     .height(64.dp)
-                    .padding(horizontal = 12.dp, vertical = 15.dp)
+                    .padding(horizontal = 14.dp, vertical = 16.dp)
                     .clickable { nav.navigate("homePage") },
                 contentScale = ContentScale.Crop,
                 colorFilter =
@@ -142,18 +145,19 @@ fun SearchPanel(nav: NavHostController) {
                         }.start()
                     }
                 },
-                placeholder = { Text("Search for titles, genres or people") },
+                placeholder = { Text("Search for Movies, TV") },
                 modifier = Modifier
                     .fillMaxWidth()
                     .height(54.dp),
                 colors = TextFieldDefaults.outlinedTextFieldColors(
                     textColor = Color.White,
-                    containerColor = Color.DarkGray,
-                    placeholderColor = Color.Gray,
-                    focusedBorderColor = Color.Transparent,
+                    containerColor = Color(0xFF1F1F1F),
+                    placeholderColor = Color(0xFFC5C3C3),
+                    focusedBorderColor = Color(0xFF6200EE),
+                    focusedLeadingIconColor = Color(0xFF6200EE),
                 ),
                 textStyle = TextStyle(
-                    fontSize = 18.sp,
+                    fontSize = 19.sp,
                 ),
                 leadingIcon = {
                     Image(
@@ -161,8 +165,8 @@ fun SearchPanel(nav: NavHostController) {
                         contentDescription = "Search",
                         modifier = Modifier
                             .height(64.dp)
-                            .padding(horizontal = 12.dp, vertical = 15.dp)
-                            .clickable { nav.navigate("homePage") },
+                            .padding(horizontal = 14.dp, vertical = 15.dp)
+                            .clickable {  },
                         contentScale = ContentScale.Crop,
                         colorFilter =
                         ColorFilter.lighting(
@@ -173,6 +177,12 @@ fun SearchPanel(nav: NavHostController) {
                 },
             )
         }
+        Spacer(
+            modifier = Modifier.height(
+                4.dp
+            )
+        )
+
         Column(
             modifier = Modifier.verticalScroll(rememberScrollState())
         ) {
@@ -181,7 +191,7 @@ fun SearchPanel(nav: NavHostController) {
                     modifier = Modifier.padding(top = 12.dp)
                 ) {
                     Text(
-                        text = "Search Results for: ${SearchBoxContent.value}",
+                        text = if (topTitlesShown.value) "Top IMDB Titles" else "Search Results for \"${SearchBoxContent.value}\"",
                         modifier = Modifier
                             .padding(
                                 vertical = 2.dp,
@@ -196,11 +206,7 @@ fun SearchPanel(nav: NavHostController) {
                     )
                 }
             }
-            Spacer(
-                modifier = Modifier.height(
-                    8.dp
-                )
-            )
+
             if (showNoResult.value) {
                 Row(
                     modifier = Modifier
@@ -226,9 +232,20 @@ fun SearchPanel(nav: NavHostController) {
                 }
             }
 
-            val splitSearch = search.chunked(3)
+            val splitSearch = search.chunked(4)
+            val ctx = LocalContext.current
+            val deviceWidth = ctx.resources.displayMetrics.widthPixels / ctx.resources.displayMetrics.density
+            val singleItemWidth = deviceWidth / 4
+            val aspectRatio = 1.61f
+
+            val singleItemHeight = singleItemWidth * aspectRatio
 
             for (i in splitSearch) {
+                Spacer(
+                    modifier = Modifier.height(
+                        8.dp
+                    )
+                )
                 val lazyListState = rememberLazyListState()
                 LazyRow(
                     modifier =
@@ -240,16 +257,16 @@ fun SearchPanel(nav: NavHostController) {
                         .clip(RoundedCornerShape(12.dp))
                         .fillMaxWidth(),
                     horizontalArrangement = if (i.size < 3) {
-                        Arrangement.SpaceEvenly
+                        Arrangement.SpaceAround
                     } else {
-                        Arrangement.SpaceBetween
+                        Arrangement.Start
                     },
                     state = lazyListState,
                 ) {
                     itemsIndexed(i) { index, item ->
-                        val pageIndex = index / 3
-                        val pageStartIndex = pageIndex * 3
-                        val pageEndIndex = (pageIndex + 1) * 3 - 1
+                        val pageIndex = index / 4
+                        val pageStartIndex = pageIndex * 4
+                        val pageEndIndex = (pageIndex + 1) * 4 - 1
 
                         if (index in pageStartIndex..pageEndIndex) {
                             if ((item.poster.length ?: 0) > 0) {
@@ -267,11 +284,11 @@ fun SearchPanel(nav: NavHostController) {
                                                 .data(item.poster)
                                                 .crossfade(true)
                                                 .build(),
-                                            contentDescription = "Movie Poster",
+                                            contentDescription = "Title Poster",
                                             contentScale = ContentScale.Crop,
                                             modifier = Modifier
-                                                .height(190.dp)
-                                                .width(118.dp)
+                                                .height(singleItemHeight.dp)
+                                                .width(singleItemWidth.dp)
                                                 .clip(
                                                     RoundedCornerShape(
                                                         5.dp
@@ -291,7 +308,7 @@ fun SearchPanel(nav: NavHostController) {
                                                 .clickable {
                                                     clickedName = item.title
                                                     clickedID = item.href
-                                                    mediaType = item.category ?: ""
+                                                    mediaType = item.category
                                                     prevPageHistory.add(
                                                         PrevNav(
                                                             prevPage = "searchPanel",
