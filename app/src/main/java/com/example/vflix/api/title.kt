@@ -144,7 +144,6 @@ fun GatherFeaturedItems(
                         }
                         if (items != null) {
                             if (items.isNotEmpty()) {
-                                // suffix poster field with BACKEND_URL
                                 for (i in items.indices) {
                                     items[i].poster = "$BACKEND_URL/api/img?url=${items[i].poster}"
                                 }
@@ -198,6 +197,10 @@ fun GatherNTInSync(
         nt.release = items.release
         nt.similar_titles = items.similar_titles
         nt.trailer = items.trailer
+
+        for (i in nt.similar_titles.indices) {
+            nt.similar_titles[i].poster = "$BACKEND_URL/api/img?url=${nt.similar_titles[i].poster}"
+        }
 
         m.value = nt
 

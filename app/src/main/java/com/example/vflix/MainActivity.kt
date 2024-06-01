@@ -1,5 +1,6 @@
 package com.example.vflix
 
+import android.content.res.Configuration
 import android.net.Uri
 import android.os.Build
 import android.os.Bundle
@@ -123,7 +124,7 @@ class MainActivity : ComponentActivity() {
             //clickedName = "Avatar: The Last Airbender"
             //mediaType = "tv"
             val navController = rememberNavController()
-            NavHost(navController, startDestination = "homePage") {
+            NavHost(navController, startDestination = "searchPanel") {
                 composable(route = "homePage") {
                     EnterAnimation {
                         HomePage(navController = navController)
@@ -167,6 +168,16 @@ class MainActivity : ComponentActivity() {
         window.attributes.layoutInDisplayCutoutMode =
             WindowManager.LayoutParams.LAYOUT_IN_DISPLAY_CUTOUT_MODE_SHORT_EDGES
 
+    }
+
+    override fun onConfigurationChanged(newConfig: Configuration) {
+        super.onConfigurationChanged(newConfig)
+
+        if (newConfig.orientation == Configuration.ORIENTATION_LANDSCAPE) {
+            colFactor.intValue = 6
+        } else {
+            colFactor.intValue = 3
+        }
     }
 
 

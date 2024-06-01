@@ -20,7 +20,12 @@ class NTSearch(
     @com.google.gson.annotations.SerializedName("quality") val quality: String,
 )
 
-fun ImdbTop(data: MutableState<List<NTSearch>>, showProgress: MutableState<Boolean>) {
+fun ImdbTop(
+    data: MutableState<List<NTSearch>>,
+    showProgress: MutableState<Boolean>,
+    showError: MutableState<Boolean>,
+    errorMess: MutableState<String>
+) {
     val client = OkHttpClient()
     val request =
         Request.Builder()
@@ -42,6 +47,10 @@ fun ImdbTop(data: MutableState<List<NTSearch>>, showProgress: MutableState<Boole
                         resp = Gson().fromJson(json, Array<NTSearch>::class.java)
                     } catch (e: Exception) {
                         println("Error: $e")
+                        showProgress.value = false
+                        showError.value = true
+                        errorMess.value = "Server Error (500)"
+                        return
                     }
 
                     if (resp != null) {
@@ -51,8 +60,6 @@ fun ImdbTop(data: MutableState<List<NTSearch>>, showProgress: MutableState<Boole
                     // set poster field suffix as BACKEND_URL
                     for (i in data.value.indices) {
                         data.value[i].poster = "$BACKEND_URL/api/img?url=${data.value[i].poster}"
-                        println(data.value[i].poster)
-
                     }
 
                     showProgress.value = false
