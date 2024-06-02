@@ -35,7 +35,7 @@
             android:contentDescription="@string/app_name"
             android:focusable="true"
             android:onClick="onZoomButtonClick"
-            android:src="@drawable/aspect_ratio"
+            android:src="@drawable/aspect_ratio_24"
             android:visibility="invisible" />
 
         <ImageView
@@ -49,7 +49,7 @@
             android:contentDescription="@string/app_name"
             android:focusable="true"
             android:onClick="onRotateButtonClick"
-            android:src="@drawable/expand"
+            android:src="@drawable/fullscreen_24"
             android:visibility="invisible" />
 
         <ImageView
@@ -63,7 +63,8 @@
             android:contentDescription="@string/app_name"
             android:focusable="true"
             android:onClick="onQualityButtonClick"
-            android:src="@drawable/hq"
+            android:src="@drawable/high_quality_24"
+            app:tint="@color/blue"
             android:visibility="visible" />
 
         <TextView
@@ -77,11 +78,11 @@
             android:layout_marginEnd="10dp"
             android:layout_marginRight="10dp"
             android:layout_marginBottom="10dp"
+            android:fontFamily="@font/sans_bold"
             android:gravity="top|center"
             android:padding="10dp"
-            android:fontFamily="@font/sans_bold"
             android:textColor="@android:color/white"
-            android:textSize="8sp"
+            android:textSize="11sp"
             android:visibility="invisible" />
 
         <ImageView
@@ -97,5 +98,7 @@
             android:focusable="true"
             android:src="@drawable/icons8_left_96"
             android:visibility="visible" />
+
+
     </FrameLayout>
 </androidx.constraintlayout.widget.ConstraintLayout>

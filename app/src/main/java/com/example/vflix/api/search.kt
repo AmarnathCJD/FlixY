@@ -99,8 +99,6 @@ fun INTSearchTitle(query: String, data: MutableState<List<NTSearch>>, showProgre
                     // set poster field suffix as BACKEND_URL
                     for (i in data.value.indices) {
                         data.value[i].poster = "$BACKEND_URL/api/img?url=${data.value[i].poster}"
-                        println(data.value[i].poster)
-
                     }
 
                     if (resp != null) {

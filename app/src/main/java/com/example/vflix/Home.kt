@@ -118,9 +118,9 @@ data class PrevNav(
 )
 
 var prevPageHistory = mutableListOf<PrevNav>()
-var clickedName = ""
-var clickedID = ""
-var mediaType = ""
+var clickedName = "Stranger Things"
+var clickedID = "/tv/stranger-things-39444"
+var mediaType = "TV"
 
 
 @Composable
@@ -145,6 +145,7 @@ fun EnterAnimation(content: @Composable () -> Unit) {
 @OptIn(ExperimentalFoundationApi::class, ExperimentalMaterial3Api::class)
 @Composable
 fun HomePage(navController: NavHostController) {
+
     val context = LocalContext.current
     Scaffold(
         bottomBar = { BottomBar(navController = navController) },

@@ -7,4 +7,9 @@
     <color name="exo_white">#E9F1F7</color>
     <color name="exo_white_opacity_70">#B3E9F1F7</color>
 
+    <color name="colorAccent">#FF5722</color>
+
+    <color name="blue">#0000FF</color>
+    <color name="red">#FF0000</color>
+
 </resources>

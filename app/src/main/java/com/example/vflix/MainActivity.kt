@@ -124,21 +124,26 @@ class MainActivity : ComponentActivity() {
             //clickedName = "Avatar: The Last Airbender"
             //mediaType = "tv"
             val navController = rememberNavController()
-            NavHost(navController, startDestination = "searchPanel") {
+            NavHost(navController, startDestination = "homePage") {
                 composable(route = "homePage") {
                     EnterAnimation {
                         HomePage(navController = navController)
                     }
                 }
                 composable(route = "videoScreen") {
-                    EnterAnimation {
-                        PlayerN(nav = navController)
-                    }
+//                    EnterAnimation {
+//                        PlayerN(nav = navController)
+//                    }
+
+                    LandingVideoPage(nav = navController)
                 }
                 composable(route = "searchPanel") {
                     EnterAnimation {
                         SearchPanel(navController)
                     }
+                }
+                composable(route = "videoPlayerScreen") {
+                    PlayerN(nav = navController)
                 }
             }
             //  ExoPlayerExample()

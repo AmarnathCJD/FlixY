@@ -448,7 +448,8 @@ fun SearchPanel(nav: NavHostController) {
                                         model =
                                         ImageRequest.Builder(LocalContext.current)
                                             .data(item.poster)
-                                            .crossfade(true)
+                                            .crossfade(100)
+                                            .allowHardware(true)
                                             .build(),
                                         contentDescription = "Title Poster",
                                         contentScale = ContentScale.Crop,

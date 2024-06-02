@@ -1,5 +1,3 @@
-import org.jetbrains.kotlin.kapt3.base.Kapt.kapt
-
 plugins {
     id("com.android.application")
     id("org.jetbrains.kotlin.android")
@@ -87,17 +85,21 @@ dependencies {
     implementation("androidx.media3:media3-ui:1.1.1")
     implementation("androidx.media3:media3-exoplayer-hls:1.1.1")
 
-    implementation("androidx.room:room-runtime:2.4.0")
-    ksp("androidx.room:room-compiler:2.4.0")
-    implementation("androidx.room:room-ktx:2.4.0")
+//    // seekbar
+//    implementation("com.github.rubensousa:previewseekbar-media3:1.1.1.0")
+//    implementation("com.github.rubensousa:previewseekbar-exoplayer:2.18.1.0")
 
-    implementation("androidx.lifecycle:lifecycle-viewmodel-compose:2.4.0-alpha03")
+//    implementation("androidx.room:room-runtime:2.4.0")
+//    ksp("androidx.room:room-compiler:2.4.0")
+//    implementation("androidx.room:room-ktx:2.4.0")
 
-    implementation("com.google.android.exoplayer:exoplayer:2.17.1")
-    implementation("com.google.android.exoplayer:exoplayer-ui:2.19.1")
-    implementation("com.google.android.exoplayer:exoplayer-hls:2.19.1")
-    implementation("com.google.android.exoplayer:exoplayer-common:2.19.1")
-    implementation("com.google.android.exoplayer:exoplayer-core:2.19.1")
+//    implementation("androidx.lifecycle:lifecycle-viewmodel-compose:2.4.0-alpha03")
 
-    implementation("com.github.rubensousa:previewseekbar-media3:1.1.1.0")
+//    implementation("com.google.android.exoplayer:exoplayer:2.17.1")
+//    implementation("com.google.android.exoplayer:exoplayer-ui:2.19.1")
+//    implementation("com.google.android.exoplayer:exoplayer-hls:2.19.1")
+//    implementation("com.google.android.exoplayer:exoplayer-common:2.19.1")
+//    implementation("com.google.android.exoplayer:exoplayer-core:2.19.1")
+
+//    implementation("com.github.rubensousa:previewseekbar-media3:1.1.1.0")
 }
