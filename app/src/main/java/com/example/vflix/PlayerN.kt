@@ -126,6 +126,7 @@ val trailerMedia = mutableStateOf("")
 @Composable
 fun LandingVideoPage(nav: NavHostController) {
     activeTitle.value?.href = ""
+    trailerMedia.value = ""
     val context = LocalContext.current
     val trackSelector = DefaultTrackSelector(context)
 
@@ -169,16 +170,20 @@ fun LandingVideoPage(nav: NavHostController) {
             when (event) {
                 Lifecycle.Event.ON_RESUME -> {
                     player.play()
-                    isPlaying.value = true
                 }
 
                 Lifecycle.Event.ON_PAUSE -> {
                     player.pause()
-                    isPlaying.value = false
                 }
 
                 else -> {}
             }
+        }
+
+        BackHandler {
+            player.stop()
+            trailerMedia.value = ""
+            activeTitle.value = null
         }
 
         if (trailerMedia.value != "") {
